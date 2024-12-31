@@ -1,6 +1,6 @@
 # Vite React Frontend Service
 services:
-  country-trivia-react:
+  frontend:
     build:
       context: .
       dockerfile: Dockerfile.prod
