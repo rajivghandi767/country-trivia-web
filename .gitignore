@@ -1,0 +1,31 @@
+# VSCode
+
+.vscode
+.DS_Store
+.env
+.vscode/* 
+!.vscode/settings.json 
+!.vscode/tasks.json 
+!.vscode/launch.json 
+!.vscode/extensions.json 
+.history
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw
+
+# Logs
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+*Dockerfile.dev
+*docker-compose.dev.yaml
