@@ -1,31 +1,83 @@
-# VSCode
-
-.vscode
-.DS_Store
+# Development environment
 .env
-.vscode/* 
-!.vscode/settings.json 
-!.vscode/tasks.json 
-!.vscode/launch.json 
-!.vscode/extensions.json 
-.history
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw
+.env.*
+!.env.example
 
-# Logs
-logs
-*.log
+# Editor and IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Node.js dependencies and build artifacts
+node_modules/
 npm-debug.log*
-pnpm-debug.log*
-lerna-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
 
-node_modules
-dist
-dist-ssr
-*.local
+# Frontend specific
+frontend/dist/
+frontend/.vite/
+frontend/coverage/
+frontend/build/
+frontend/stats.html
+frontend/.env*
+!frontend/.env.example
+
+# Backend specific
+backend/dist/
+backend/build/
+backend/coverage/
+backend/logs/
+backend/*.log
+backend/.env*
+!backend/.env.example
+
+# TypeScript
+*.tsbuildinfo
+
+# Testing
+coverage/
+.nyc_output/
+
+# Docker
+.docker/
+docker-compose.override.yml
+
+# Operating System
+.DS_Store
+Thumbs.db
+*.pem
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Production configuration
+config.production.json
+secrets.json
+
+# Debug logs
+debug/
+*.debug
+
+# Vault
+.vault-token
+.vault/
+
+# Jenkins
+jenkins/workspace/
+jenkins/builds/
+Jenkinsfile.local
+
+# Local SSL certificates
+*.crt
+*.key
+*.cert
 
 *Dockerfile.dev
+*docker-compose.dev.yml
 *docker-compose.dev.yaml
