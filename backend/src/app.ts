@@ -1,30 +1,32 @@
-import express from 'express';
-import { config } from 'dotenv';
+import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
-import gameRoutes from './routes/gameRoutes';
-import userRoutes from './routes/userRoutes';
-import leaderboardRoutes from './routes/leaderboardRoutes';
-import { setupVaultConnection } from './config/vault';
-import { setupDatabase } from './config/database';
+import dotenv from 'dotenv';
+import { Pool } from 'pg';
 
-config();
+// Load environment variables
+dotenv.config();
 
-const app = express();
+// Initialize Express app
+const app: Express = express();
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
-app.use('/api/game', gameRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/leaderboard', leaderboardRoutes);
+// Database connection
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
-// Database and Vault setup
-setupVaultConnection();
-setupDatabase();
+// Health check endpoint
+app.get('/health', (req: Request, res: Response) => {
+  res.json({ status: 'healthy' });
+});
 
+// Start server
 const PORT = process.env.PORT || 5050;
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`Server is running on port ${PORT}`);
 });
+
+export default app;
