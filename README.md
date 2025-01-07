@@ -21,8 +21,6 @@ This project is a full stack Express/React/TypeScript web application translated
 
 ## **Getting Started**
 
-Steps to set up the project locally.
-
 ## **Docker Setup**
 
 ## **CI/CD Pipeline**
