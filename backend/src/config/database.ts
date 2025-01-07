@@ -9,17 +9,21 @@ interface VaultResponse {
 }
 
 export class DatabaseConnector {
-  private static instance: Pool;
+  private static instance: Pool | null = null;
   private static config: PoolConfig;
 
   private static async getVaultCredentials(): Promise<string> {
     try {
+
       // Get Vault token from environment
       const vaultToken = process.env.VAULT_TOKEN;
+      if (!vaultToken) {
+        throw new Error('Vault token is not defined');
+      }
       
       // Access Vault API using fetch
       const response = await fetch(
-        `${process.env.VAULT_ADDR}/v1/secret/data/country-trivia/db`,
+        `${process.env.VAULT_ADDR}/database`,
         {
           headers: {
             'X-Vault-Token': vaultToken
