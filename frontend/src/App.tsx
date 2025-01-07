@@ -1,8 +1,8 @@
 import React from "react";
 import countryData from "../public/countryData.json";
 import { useEffect, useState } from "react";
-import StatBar from "./components/StatBar";
-import PromptAnswer from "./components/PromptAnswer";
+import StatBar from "./components/Leader";
+import PromptAnswer from "./components/Game";
 
 function App() {
   //Dark Mode Toggle
