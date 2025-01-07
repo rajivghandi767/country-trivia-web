@@ -1,29 +1,45 @@
 services:
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-    container_name: country-trivia-frontend
-    restart: unless-stopped
-    networks:
-      - app-network
-
+  # Node Express Backend Service
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.prod
     container_name: country-trivia-backend
     restart: unless-stopped
-    environment:
-      - NODE_ENV=production
-      - DB_HOST=https://db.rajivwallace.com
-      - DB_PORT=5432
-      - VAULT_ADDR=https://vault.rajivwallace.com
-      - VAULT_ROLE_ID=${VAULT_ROLE_ID}
-      - VAULT_SECRET_ID=${VAULT_SECRET_ID}
-    networks:
-      - app-network
+    user: "backend:backend_group"
+    env_file: .env
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    depends_on:
+      - db
+    ports:
+      - "5050:5050"
 
-networks:
-  app-network:
-    driver: bridge
+  # PostgreSQL Database Service
+  db:
+    image: postgres:17-alpine
+    container_name: country-trivia-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      - POSTGRES_DB=${POSTGRESQL_DB}
+      - POSTGRES_USER=${POSTGRESQL_USER}
+      - POSTGRES_PASSWORD=${POSTGRESQL_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  # Vite React Frontend Service
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+    container_name: portfolio-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "5000:80"
+
+volumes:
+  postgres_data:
