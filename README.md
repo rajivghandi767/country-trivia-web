@@ -21,8 +21,6 @@ This project is a full stack Express/React/TypeScript web application translated
 
 ## **Getting Started**
 
-Steps to set up the project locally.
-
 ## **Docker Setup**
 
 ## **CI/CD Pipeline**
@@ -33,11 +31,11 @@ Steps to set up the project locally.
 
 The key technologies and libraries used in the project.
 
-- **React.js** - Frontend library
-- \*\*Express.js - Backend Framework
+- **React** - Frontend library
+- **Express** - Backend Framework
 - **TypeScript** - Typed JavaScript
 - **Docker** - Containerization platform
-- \*\*Hashicorp Vault - Secrets Management
+- **Hashicorp Vault** - Secrets Management
 - **Jenkins** - CI/CD pipeline automation
 - **Raspberry Pi 4B** - Local hosting environment
 - **Styled Components** - Tailwind CSS
