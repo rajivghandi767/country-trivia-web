@@ -19,7 +19,7 @@ export class DatabaseConnector {
       
       // Access Vault API using fetch
       const response = await fetch(
-        `${process.env.VAULT_ADDR}/v1/secret/data/countrytrivia/db`,
+        `${process.env.VAULT_ADDR}/v1/secret/data/country-trivia/db`,
         {
           headers: {
             'X-Vault-Token': vaultToken
@@ -45,23 +45,22 @@ export class DatabaseConnector {
         // Get password from Vault
         const dbPassword = await DatabaseConnector.getVaultCredentials();
 
-        // Configure database connection with explanatory comments
+        // Configure database connection
         DatabaseConnector.config = {
-          user: 'postgres',
-          host: 'db',
-          database: 'countrytrivia',
+          user: 'rajivghandi767',
+          host: 'https://db.rajivwallace.com',
+          database: 'country-trivia',
           password: dbPassword,
           port: 5432,
-          // Connection pool settings
-          max: 20,         // Maximum number of clients the pool should contain
-          idleTimeoutMillis: 30000,  // How long a client is allowed to remain idle before being closed
-          connectionTimeoutMillis: 2000,  // How long to wait when connecting a new client
+          max: 20,         
+          idleTimeoutMillis: 30000,
+          connectionTimeoutMillis: 2000,
         };
 
-        // Create connection pool
+        // Create Connection Pool
         DatabaseConnector.instance = new Pool(DatabaseConnector.config);
 
-        // Test connection
+        // Test Connection
         const client = await DatabaseConnector.instance.connect();
         console.log('Database connection successful');
         client.release();

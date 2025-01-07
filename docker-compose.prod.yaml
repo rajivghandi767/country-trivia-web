@@ -14,7 +14,7 @@ services:
     depends_on:
       - db
     ports:
-      - "5050:5050"
+      - "6060:6060"
 
   # PostgreSQL Database Service
   db:
@@ -39,7 +39,7 @@ services:
     depends_on:
       - backend
     ports:
-      - "5000:80"
+      - "6000:80"
 
 volumes:
   postgres_data:
