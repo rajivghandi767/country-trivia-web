@@ -34,7 +34,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
-    container_name: portfolio-frontend
+    container_name: country-trivia-frontend
     restart: unless-stopped
     depends_on:
       - backend
