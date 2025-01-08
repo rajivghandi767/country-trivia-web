@@ -1,92 +1,23 @@
-import { Pool, PoolConfig } from 'pg';
+import { Pool } from 'pg';
 
-interface VaultResponse {
-  data: {
-    data: {
-      password: string;
-    };
-  };
-}
+export class Database {
+  private static pool: Pool;
 
-export class DatabaseConnector {
-  private static instance: Pool | null = null;
-  private static config: PoolConfig;
-
-  private static async getVaultCredentials(): Promise<string> {
-    try {
-
-      // Get Vault token from environment
-      const vaultToken = process.env.VAULT_TOKEN;
-      if (!vaultToken) {
-        throw new Error('Vault token is not defined');
-      }
-      
-      // Access Vault API using fetch
-      const response = await fetch(
-        `${process.env.VAULT_ADDR}/database`,
-        {
-          headers: {
-            'X-Vault-Token': vaultToken
-          }
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Vault API error: ${response.status}`);
-      }
-
-      const data = await response.json() as VaultResponse;
-      return data.data.data.password;
-    } catch (error) {
-      console.error('Error fetching credentials from Vault:', error);
-      throw error;
-    }
+  static initialize(): void {
+    
+    this.pool = new Pool({
+      host: process.env.DB_HOST,
+      port: parseInt(process.env.DB_PORT || '5432'),
+      database: process.env.DB_NAME,
+      user: process.env.DB_USER,
+      password: process.env.DB_PASSWORD
+    });
   }
 
-  public static async getConnection(): Promise<Pool> {
-    if (!DatabaseConnector.instance) {
-      try {
-        // Get password from Vault
-        const dbPassword = await DatabaseConnector.getVaultCredentials();
-
-        // Configure database connection
-        DatabaseConnector.config = {
-          user: 'rajivghandi767',
-          host: 'https://db.rajivwallace.com',
-          database: 'country-trivia',
-          password: dbPassword,
-          port: 5432,
-          max: 20,         
-          idleTimeoutMillis: 30000,
-          connectionTimeoutMillis: 2000,
-        };
-
-        // Create Connection Pool
-        DatabaseConnector.instance = new Pool(DatabaseConnector.config);
-
-        // Test Connection
-        const client = await DatabaseConnector.instance.connect();
-        console.log('Database connection successful');
-        client.release();
-
-      } catch (error) {
-        console.error('Error initializing database connection:', error);
-        throw error;
-      }
+  static getPool(): Pool {
+    if (!this.pool) {
+      throw new Error('Database not initialized');
     }
-
-    return DatabaseConnector.instance;
-  }
-
-  public static async closeConnection(): Promise<void> {
-    if (DatabaseConnector.instance) {
-      await DatabaseConnector.instance.end();
-      DatabaseConnector.instance = null;
-    }
+    return this.pool;
   }
 }
-
-// Convenience function to get database connection
-export const getDb = async (): Promise<Pool> => {
-  return DatabaseConnector.getConnection();
-};
