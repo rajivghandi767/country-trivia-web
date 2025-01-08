@@ -10,7 +10,6 @@ pipeline {
         
         VAULT_ADDR = 'https://vault.rajivwallace.com'
 
-        APP_NAME = 'country-trivia'
         DB_HOST = 'https://db.rajivwallace.com'
     }
     
