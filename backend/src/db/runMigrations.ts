@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { promises as fs } from 'fs';
 import path from 'path';
-import { DatabaseConnector } from './config/database';
+import { DatabaseConnector } from '../config/database';
 
 async function runMigrations() {
   let client;

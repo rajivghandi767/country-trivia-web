@@ -14,7 +14,7 @@ services:
     depends_on:
       - db
     ports:
-      - "5050:5050"
+      - "6060:6060"
 
   # PostgreSQL Database Service
   db:
@@ -34,12 +34,12 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile.prod
-    container_name: portfolio-frontend
+    container_name: country-trivia-frontend
     restart: unless-stopped
     depends_on:
       - backend
     ports:
-      - "5000:80"
+      - "6000:80"
 
 volumes:
   postgres_data:
