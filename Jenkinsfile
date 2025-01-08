@@ -6,6 +6,7 @@ pipeline {
         ENV = 'prod'
         DOCKER_BACKEND = 'country-trivia-backend'
         DOCKER_FRONTEND = 'country-trivia-frontend'
+        DOCKER_COMPOSE_FILE = "docker-compose.prod.yml"
         
         VAULT_ADDR = 'https://vault.rajivwallace.com'
 
@@ -72,6 +73,20 @@ pipeline {
                     ]) {
                         echo 'Secrets retrieved successfully!'
                     }
+                }
+            }
+        }
+
+        stage('Lint Code') {
+            steps {
+                echo "Linting Frontend and Backend"
+                dir('frontend') {
+                    sh 'npm install'
+                    sh 'npm run lint'
+                }
+                dir('backend') {
+                    sh 'npm install'
+                    sh 'npm run lint'
                 }
             }
         }
