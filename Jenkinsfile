@@ -6,10 +6,10 @@ pipeline {
         ENV = 'prod'
         DOCKER_BACKEND = 'country-trivia-backend'
         DOCKER_FRONTEND = 'country-trivia-frontend'
+        DOCKER_COMPOSE_FILE = "docker-compose.prod.yml"
         
         VAULT_ADDR = 'https://vault.rajivwallace.com'
 
-        APP_NAME = 'country-trivia'
         DB_HOST = 'https://db.rajivwallace.com'
     }
     
@@ -25,6 +25,7 @@ pipeline {
 
         stage('Infrastructure Check') {
             steps {
+                echo "Checking if Vault and PostgreSQL are accessible"
                 script {
                     sh '''
                         curl -s ${VAULT_ADDR}/v1/sys/health || {
@@ -34,7 +35,7 @@ pipeline {
                     '''
                     
                     sh '''
-                        nc -zv ${DEPLOY_HOST} 5432 || {
+                        nc -zv ${DB_HOST} 5432 || {
                             echo "PostgreSQL is not accessible"
                             exit 1
                         }
@@ -45,6 +46,7 @@ pipeline {
 
         stage('Get Secrets') {
             steps {
+                echo "Retrieving secrets from Vault"
                 script {
 
                     withVault(configuration: [
@@ -75,9 +77,24 @@ pipeline {
                 }
             }
         }
+
+        stage('Lint Code') {
+            steps {
+                echo "Linting Frontend and Backend"
+                dir('frontend') {
+                    sh 'npm install'
+                    sh 'npm run lint'
+                }
+                dir('backend') {
+                    sh 'npm install'
+                    sh 'npm run lint'
+                }
+            }
+        }
         
         stage('Build & Test Backend') {
             steps {
+                echo "Building and Testing Backend"
                 dir('backend') {
                     sh 'npm install'
                     
@@ -92,6 +109,7 @@ pipeline {
         
         stage('Build & Test Frontend') {
             steps {
+                echo "Building and Testing Frontend"
                 dir('frontend') {
                     
                     sh 'npm install'
