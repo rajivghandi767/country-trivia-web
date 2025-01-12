@@ -16,13 +16,11 @@
   "type": "commonjs",
   "description": "",
   "dependencies": {
-    "@types/node-vault": "^0.9.1",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
-    "node-vault": "^0.10.2",
     "pg": "^8.13.1"
   },
   "devDependencies": {
@@ -34,6 +32,6 @@
     "@types/pg": "^8.11.10",
     "nodemon": "^3.1.9",
     "ts-node": "^10.9.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.3"
   }
 }

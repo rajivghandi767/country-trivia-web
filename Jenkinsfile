@@ -125,7 +125,7 @@ pipeline {
             }
         }
         
-        stage('Deploy Application') {
+        stage('Deploy Application Locally') {
             steps {
                 echo "Deploying Services Locally"
                 sh """
