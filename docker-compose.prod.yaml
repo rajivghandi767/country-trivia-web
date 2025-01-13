@@ -6,7 +6,6 @@ services:
       dockerfile: Dockerfile.prod
     container_name: country-trivia-backend
     restart: unless-stopped
-    user: "backend:backend_group"
     env_file: .env
     volumes:
       - ./backend:/app
