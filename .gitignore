@@ -1,83 +1,96 @@
-# Development environment
+# Distribution / Packaging
+__pypackages__/
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+*.manifest 
+*.spec 
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Environments
 .env
-.env.*
-!.env.example
+*.env.production
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Editor and IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
+# VSCode
 
-# Node.js dependencies and build artifacts
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# Frontend specific
-frontend/dist/
-frontend/.vite/
-frontend/coverage/
-frontend/build/
-frontend/stats.html
-frontend/.env*
-!frontend/.env.example
-
-# Backend specific
-backend/dist/
-backend/build/
-backend/coverage/
-backend/logs/
-backend/*.log
-backend/.env*
-!backend/.env.example
-
-# TypeScript
-*.tsbuildinfo
-
-# Testing
-coverage/
-.nyc_output/
-
-# Docker
-.docker/
-docker-compose.override.yml
-
-# Operating System
+.vscode
 .DS_Store
-Thumbs.db
-*.pem
+.env
+.vscode/* 
+!.vscode/settings.json 
+!.vscode/tasks.json 
+!.vscode/launch.json 
+!.vscode/extensions.json 
+.history
 
-# Temporary files
-*.tmp
-*.temp
-.cache/
+# Django #
+*.log
+*.pot
+*.pyc
+__pycache__
+media
+local_settings.py
+db.sqlite3-journal
+db.sqlite3
 
-# Production configuration
-config.production.json
-secrets.json
+# Backup files # 
+*.bak 
+datadump.json
 
-# Debug logs
-debug/
-*.debug
+# Generated files
+.idea/**/contentModel.xml
 
-# Vault
-.vault-token
-.vault/
+# Sensitive or high-churn files
+.idea/**/dataSources/
+.idea/**/dataSources.ids
+.idea/**/dataSources.local.xml
+.idea/**/sqlDataSources.xml
+.idea/**/dynamic.xml
+.idea/**/uiDesigner.xml
+.idea/**/dbnavigator.xml
 
-# Jenkins
-jenkins/workspace/
-jenkins/builds/
-Jenkinsfile.local
+# Python # 
+*.py[cod] 
+*$py.class 
 
-# Local SSL certificates
-*.crt
-*.key
-*.cert
+# React #
 
-*Dockerfile.dev
-*docker-compose.dev.yml
+*/node_modules
+
+/.pnp
+.pnp.js
+
+npm-debug.log*
+
+/nginx
+
 *docker-compose.dev.yaml
+*docker-compose.dev.yml
+*Dockerfile.dev
+
+/backend/staticfiles
+/backend/mediafiles

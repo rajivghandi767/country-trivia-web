@@ -1,0 +1,29 @@
+FROM python:3.13-slim
+
+RUN groupadd backend_group && useradd --create-home --gid backend_group backend && \
+    mkdir -p /home/backend/django && chown -R backend:backend_group /home/backend/django
+
+WORKDIR /home/backend/django
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --chown=backend:backend_group requirements.txt ./
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir --no-warn-script-location -r requirements.txt && \ 
+    rm requirements.txt
+
+COPY --chown=backend:backend_group . .
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBFFERED=1 \
+    PATH="/home/backend/.local/bin:$PATH" \
+    DJANGO_SETTINGS_MODULE=portfolio_website.settings.production
+
+USER backend
+
+EXPOSE 6060
+
+CMD ["gunicorn", "--workers", "4", "--bind", "0.0.0.0:6060", "country_trivia.wsgi:application"]
