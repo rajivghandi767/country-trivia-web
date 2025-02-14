@@ -1,6 +1,6 @@
 pipeline {
     agent any
-    
+
     environment {
 
         ENV = 'prod'
@@ -8,11 +8,9 @@ pipeline {
         DOCKER_FRONTEND = 'country-trivia-frontend'
         DOCKER_COMPOSE_FILE = "docker-compose.prod.yml"
         
-        VAULT_ADDR = 'https://vault.rajivwallace.com'
-
         DB_HOST = 'https://db.rajivwallace.com'
     }
-    
+
     stages {
         stage('Checkout Code') {
             steps {
@@ -35,7 +33,7 @@ pipeline {
                     '''
                     
                     sh '''
-                        nc -zv ${DB_HOST} 5432 || {
+                        nc -zv ${DEPLOY_HOST} 5432 || {
                             echo "PostgreSQL is not accessible"
                             exit 1
                         }
@@ -66,6 +64,15 @@ pipeline {
                             ]
                         ],
                         [
+                            path: "secrets/country-trivia/${ENV}/backend",
+                            secretValues: [
+                                [envVar: 'DJANGO_SECRET_KEY', vaultKey: 'DJANGO_SECRET_KEY'],
+                                [envVar: 'ALLOWED_HOSTS', vaultKey: 'ALLOWED_HOSTS'],
+                                [envVar: 'CORS_ALLOWED_ORIGINS', vaultKey: 'CORS_ALLOWED_ORIGINS'],
+                                [envVar: 'CSRF_TRUSTED_ORIGINS', vaultKey: 'CSRF_TRUSTED_ORIGINS'],
+                            ]
+                        ],
+                        [
                             path: "secrets/country-trivia/${ENV}/frontend",
                             secretValues: [
                                 [envVar: 'VITE_URL_API', vaultKey: 'VITE_URL_API']
@@ -86,19 +93,20 @@ pipeline {
                     sh 'npm run lint'
                 }
                 dir('backend') {
-                    sh 'npm install'
-                    sh 'npm run lint'
+                    sh 'pip install flake8 black'
+                    sh 'flake8 .'
+                    sh 'black --check .'
                 }
             }
         }
-        
+
         stage('Build & Test Backend') {
             steps {
                 echo "Building and Testing Backend"
                 dir('backend') {
-                    sh 'npm install'
-                    
-                    sh 'npm test'
+
+                    sh 'pip install -r requirements.txt'
+                    sh 'python manage.py test'
                     
                     script {
                         docker.build(DOCKER_BACKEND)
@@ -124,7 +132,7 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Deploy Application Locally') {
             steps {
                 echo "Deploying Services Locally"
@@ -134,6 +142,15 @@ pipeline {
                 """
                 // Uncomment below to force container recreation
                 // sh "docker compose -f ${DOCKER_COMPOSE_FILE} up -d --force-recreate"
+            }
+        }
+        
+        stage('Collect Static Files') {
+            steps {
+                echo "Collecting Django Static Files"
+                sh """
+                    docker compose -f ${DOCKER_COMPOSE_FILE} exec backend python manage.py collectstatic --noinput --clear
+                """
             }
         }
         
@@ -159,13 +176,13 @@ pipeline {
             }
         }
     }
-    
+
     post {
         success {
-            echo 'Deployment successful!'
+            echo "Deployment completed successfully!"
         }
         failure {
-            echo 'Deployment failed. Rolling back to previous version. Check the logs for more information.'
+            echo "Deployment failed. Rolling back to previous version. Check the logs for more information."
 
             sh 'docker compose rollback || true'
         }
