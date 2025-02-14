@@ -94,3 +94,4 @@ npm-debug.log*
 
 /backend/staticfiles
 /backend/mediafiles
+/backend/country_trivia/settings/local.py
