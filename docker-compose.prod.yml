@@ -1,5 +1,5 @@
 services:
-  # Node Express Backend Service
+  # Django Backend Service
   backend:
     build:
       context: ./backend
@@ -7,18 +7,19 @@ services:
     container_name: country-trivia-backend
     restart: unless-stopped
     env_file: .env
-    volumes:
-      - ./backend:/app
-      - /app/node_modules
     depends_on:
       - db
+    volumes:
+      - /opt/country-trivia/backend/staticfiles:/home/backend/django/staticfiles
+      - /opt/country-trivia/backend/mediafiles:/home/backend/django/mediafiles
+    user: "backend:backend_group"
     ports:
       - "6060:6060"
 
   # PostgreSQL Database Service
   db:
     image: postgres:17-alpine
-    container_name: country-trivia-db
+    container_name: country-trivia
     restart: unless-stopped
     env_file: .env
     environment:
@@ -35,10 +36,13 @@ services:
       dockerfile: Dockerfile.prod
     container_name: country-trivia-frontend
     restart: unless-stopped
-    depends_on:
-      - backend
     ports:
       - "6000:80"
 
+#Volumes & Networks
 volumes:
   postgres_data:
+networks:
+  default:
+    external: true
+    name: country_trivia_backend_network
