@@ -38,7 +38,7 @@ The key technologies and libraries used in the project.
 - **Hashicorp Vault** - Secrets Management
 - **Jenkins** - CI/CD pipeline automation
 - **Raspberry Pi 4B** - Local hosting environment
-- **Styled Components** - Tailwind CSS
+- **Tailwind CSS** - Utility-first CSS framework
 
 ## **Contributing**
 
