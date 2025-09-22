@@ -1,0 +1,95 @@
+services:
+  trivia-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: trivia-backend
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
+      - trivia_media:/home/backend/django/mediafiles
+      - trivia_logs:/home/backend/django/logs
+    user: "backend:backend_group"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  trivia-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NODE_ENV=production
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: trivia-frontend
+    restart: unless-stopped
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Single unified nginx service
+  trivia-nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: trivia-nginx
+    restart: unless-stopped
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+    volumes:
+      - trivia_static:/usr/share/nginx/html/static:ro
+      - trivia_media:/usr/share/nginx/html/media:ro
+      - trivia_logs:/var/log/nginx
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/nginx-status/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  trivia_static:
+    driver: local
+
+  trivia_media:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/trivia/media
+
+  trivia_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/trivia/logs
+
+networks:
+  default:
+    name: trivia_network
+    external: true
