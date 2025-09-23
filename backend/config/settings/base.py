@@ -31,6 +31,8 @@ INSTALLED_APPS = [
 
     # Local apps
     'trivia',
+    'game',
+    'user',
 ]
 
 MIDDLEWARE = [
