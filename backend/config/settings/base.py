@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'rest_framework',
 
     # Local apps
+    'trivia',
 ]
 
 MIDDLEWARE = [
