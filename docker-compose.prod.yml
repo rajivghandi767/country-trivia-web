@@ -4,6 +4,9 @@ services:
     image: postgres:18-alpine
     container_name: trivia-db
     restart: unless-stopped
+    networks:
+      - trivia
+      - database
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -12,10 +15,7 @@ services:
       POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
     volumes:
       - trivia_db_data:/var/lib/postgresql/data
-      - ./backups:/backups
-    networks:
-      - default
-      - database
+      - trivia_backups:/backups
     healthcheck:
       test:
         [
@@ -38,7 +38,12 @@ services:
       context: ./backend
       dockerfile: Dockerfile.prod
     container_name: trivia-backend-init
+    user: root
+    networks:
+      - trivia
     env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
     depends_on:
       trivia-db:
         condition: service_healthy
@@ -53,6 +58,8 @@ services:
       dockerfile: Dockerfile.prod
     container_name: trivia-backend
     restart: unless-stopped
+    networks:
+      - trivia
     depends_on:
       trivia-db:
         condition: service_healthy
@@ -80,6 +87,9 @@ services:
         - VITE_API_URL=${VITE_API_URL}
     container_name: trivia-frontend
     restart: unless-stopped
+    networks:
+      - core
+      - trivia
     depends_on:
       trivia-backend:
         condition: service_healthy
@@ -96,6 +106,9 @@ services:
       dockerfile: Dockerfile
     container_name: trivia-nginx
     restart: unless-stopped
+    networks:
+      - core
+      - trivia
     depends_on:
       trivia-backend:
         condition: service_healthy
@@ -112,30 +125,25 @@ services:
       retries: 3
 
 volumes:
-  trivia_static:
-    driver: local
+  trivia_backups:
+    name: trivia_backups
 
   trivia_db_data:
-    driver: local
+    name: trivia_db_data
+
+  trivia_static:
+    name: trivia_static
 
   trivia_media:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/trivia-website/media
+    name: trivia_media
 
   trivia_logs:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: /opt/trivia-website/logs
+    name: trivia_logs
 
 networks:
-  default:
-    name: trivia
+  trivia:
+    external: true
+  core:
     external: true
   database:
-    name: database
     external: true
