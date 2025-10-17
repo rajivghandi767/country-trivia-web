@@ -1,12 +1,18 @@
 from .base import *
 import os
+from dotenv import load_dotenv
+
+# ============================================================================
+# LOAD ENV VARIABLES
+# ============================================================================
+env_path = BASE_DIR / '.env'
+load_dotenv(dotenv_path=env_path, override=True)
 
 # ============================================================================
 # PRODUCTION SECURITY SETTINGS
 # ============================================================================
 DEBUG = False
-
-# Production hosts
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 
 # ============================================================================
@@ -15,7 +21,7 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '').split(',')
 CSRF_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [origin.strip() for origin in os.getenv(
     'CSRF_TRUSTED_ORIGINS', '').split(',') if origin.strip()]
-CSRF_COOKIE_HTTPONLY = False  # Allow JavaScript access for AJAX
+CSRF_COOKIE_HTTPONLY = False
 CSRF_COOKIE_SAMESITE = 'Lax'
 
 # ============================================================================
@@ -34,24 +40,19 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 # ============================================================================
 SECURE_SSL_REDIRECT = False
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-SECURE_BROWSER_XSS_FILTER = True
-SECURE_CONTENT_TYPE_NOSNIFF = True
-SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
-X_FRAME_OPTIONS = "SAMEORIGIN"
 
 # ============================================================================
-# STATIC & MEDIA FILES FOR PRODUCTION - FIXED
+# STATIC & MEDIA FILES FOR PRODUCTION
 # ============================================================================
 STATIC_URL = '/static/'
-MEDIA_URL = '/media/'
 STATIC_ROOT = '/home/backend/django/staticfiles'
+
+MEDIA_URL = '/media/'
 MEDIA_ROOT = '/home/backend/django/mediafiles'
 
 # Ensure directories exist
 os.makedirs(MEDIA_ROOT, exist_ok=True)
 os.makedirs(STATIC_ROOT, exist_ok=True)
-os.makedirs(os.path.join(MEDIA_ROOT, 'info', 'photos'), exist_ok=True)
-os.makedirs(os.path.join(MEDIA_ROOT, 'resumes'), exist_ok=True)
 
 # ============================================================================
 # DATABASE CONFIGURATION FOR PRODUCTION
@@ -59,11 +60,11 @@ os.makedirs(os.path.join(MEDIA_ROOT, 'resumes'), exist_ok=True)
 DATABASES = {
     'default': {
         'ENGINE': 'django_prometheus.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRESQL_DB'),
-        'USER': os.getenv('POSTGRESQL_USER'),
-        'PASSWORD': os.getenv('POSTGRESQL_PASSWORD'),
-        'HOST': os.getenv('POSTGRESQL_HOST'),
-        'PORT': os.getenv('POSTGRESQL_PORT'),
+        'NAME': os.getenv('POSTGRES_DB'),
+        'USER': os.getenv('POSTGRES_USER'),
+        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+        'HOST': os.getenv('POSTGRES_HOST'),
+        'PORT': os.getenv('POSTGRES_PORT'),
         'OPTIONS': {
             'connect_timeout': 30,
             'sslmode': 'prefer',
@@ -71,15 +72,6 @@ DATABASES = {
         'CONN_MAX_AGE': 60,
     }
 }
-
-# ============================================================================
-# FILE UPLOAD SETTINGS - FIXED SIZE LIMITS
-# ============================================================================
-# Increased to handle 5MB files + Django overhead
-FILE_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024  # 6MB
-DATA_UPLOAD_MAX_MEMORY_SIZE = 6 * 1024 * 1024  # 6MB
-FILE_UPLOAD_PERMISSIONS = 0o644
-FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o755
 
 # ============================================================================
 # ENHANCED LOGGING CONFIGURATION
@@ -166,23 +158,12 @@ REST_FRAMEWORK.update({
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
-    'DEFAULT_THROTTLE_CLASSES': [
-        'rest_framework.throttling.AnonRateThrottle',
-    ],
     'DEFAULT_THROTTLE_RATES': {
-        'anon': '1000/hour',
         'contact': '20/hour',
     },
-    # Disable pagination for simple array responses
+
     'DEFAULT_PAGINATION_CLASS': None,
 })
-
-# ============================================================================
-# OPTIONAL SETTINGS
-# ============================================================================
-DISCORD_WEBHOOK_URL = os.getenv('DISCORD_WEBHOOK_URL')
-ADMIN_URL = os.getenv('ADMIN_URL', 'admin/')
-HEALTH_CHECK_ENABLED = True
 
 # ============================================================================
 # PROMETHEUS MONITORING CONFIGURATION

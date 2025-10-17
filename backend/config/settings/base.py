@@ -1,33 +1,23 @@
 from pathlib import Path
-import os
-from dotenv import load_dotenv
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+# ============================================================================
+# BASE DIRECTORY
+# ============================================================================
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
-
-# ============================================================================
-# SECURITY SETTINGS
-# ============================================================================
-SECRET_KEY = os.environ.get('DJANGO_SECRET_KEY')
-DEBUG = False
 
 # ============================================================================
 # APPLICATION DEFINITION
 # ============================================================================
 INSTALLED_APPS = [
     'django_prometheus',
+    'rest_framework'
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-
-    # Third party apps
-    'rest_framework',
 
     # Local apps
     'trivia',
@@ -116,18 +106,6 @@ LANGUAGE_CODE = 'en-us'
 TIME_ZONE = 'UTC'
 USE_I18N = True
 USE_TZ = True
-
-# ============================================================================
-# STATIC FILES CONFIGURATION
-# ============================================================================
-STATIC_URL = '/static/'
-STATIC_ROOT = '/home/backend/django/staticfiles'
-
-# ============================================================================
-# MEDIA FILES CONFIGURATION
-# ============================================================================
-MEDIA_URL = '/media/'
-MEDIA_ROOT = '/home/backend/django/mediafiles'
 
 # ============================================================================
 # DEFAULT PRIMARY KEY FIELD TYPE

@@ -1,0 +1,43 @@
+# General ignores
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.log
+*.swp
+*.swo
+*.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.env
+
+# Ignore virtual environments
+venv/
+.env/
+env/
+
+# Backend (Django DRF) specific
+migrations/
+*.sqlite3
+
+# Frontend (React) specific
+node_modules/
+build/
+dist/
+
+# Ignore Docker-related files that aren't required in the image
+.dockerignore
+docker-compose.yml
+
+# Ignore Git repository files
+.git/
+.gitignore
+
+# Ignore test-related files
+tests/
+coverage/
+*.cover
+*.coverage
+coverage.xml
+.nyc_output/
