@@ -10,7 +10,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # ============================================================================
 INSTALLED_APPS = [
     'django_prometheus',
-    'rest_framework'
+    'rest_framework',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -21,8 +21,6 @@ INSTALLED_APPS = [
 
     # Local apps
     'trivia',
-    'game',
-    'user',
 ]
 
 MIDDLEWARE = [
