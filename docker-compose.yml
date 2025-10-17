@@ -1,0 +1,149 @@
+services:
+  # PostgreSQL Database for Trivia Backend
+  trivia-db:
+    image: postgres:18-alpine
+    container_name: trivia-db
+    restart: unless-stopped
+    networks:
+      - trivia
+      - database
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      LC_ALL: "en_US.utf8"
+      POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
+    volumes:
+      - trivia_db_data:/var/lib/postgresql/data
+      - trivia_backups:/backups
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-q",
+          "-d",
+          "${POSTGRES_DB}",
+          "-U",
+          "${POSTGRES_USER}",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # DB Migration & Static Files Collection
+  trivia-backend-init:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: trivia-backend-init
+    user: root
+    networks:
+      - trivia
+    env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
+    depends_on:
+      trivia-db:
+        condition: service_healthy
+    command: >
+      sh -c "python manage.py migrate --noinput && 
+             python manage.py collectstatic --noinput"
+
+  # Trivia Backend - Django
+  trivia-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    container_name: trivia-backend
+    restart: unless-stopped
+    networks:
+      - trivia
+    depends_on:
+      trivia-db:
+        condition: service_healthy
+      trivia-backend-init:
+        condition: service_completed_successfully
+    env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
+      - trivia_media:/home/backend/django/mediafiles
+      - trivia_logs:/home/backend/django/logs
+    user: "backend:backend_group"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  trivia-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        - NODE_ENV=production
+        - VITE_API_URL=${VITE_API_URL}
+    container_name: trivia-frontend
+    restart: unless-stopped
+    networks:
+      - core
+      - trivia
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Single unified nginx service
+  trivia-nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: trivia-nginx
+    restart: unless-stopped
+    networks:
+      - core
+      - trivia
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+      trivia-frontend:
+        condition: service_healthy
+    volumes:
+      - trivia_static:/usr/share/nginx/html/static:ro
+      - trivia_media:/usr/share/nginx/html/media:ro
+      - trivia_logs:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/nginx-status/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  trivia_backups:
+    name: trivia_backups
+
+  trivia_db_data:
+    name: trivia_db_data
+
+  trivia_static:
+    name: trivia_static
+
+  trivia_media:
+    name: trivia_media
+
+  trivia_logs:
+    name: trivia_logs
+
+networks:
+  trivia:
+    external: true
+  core:
+    external: true
+  database:
+    external: true
