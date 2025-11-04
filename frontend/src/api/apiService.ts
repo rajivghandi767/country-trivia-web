@@ -1,4 +1,4 @@
-import { ApiResponse, Country } from "../types";
+import { ApiResponse, Country } from "@/types";
 
 // Base URL for the API from environment variables, without a fallback.
 const API_URL = import.meta.env.VITE_API_URL + '/api/';

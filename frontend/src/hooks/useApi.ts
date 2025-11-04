@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { ApiResponse } from '../types';
+import { ApiResponse } from '@/types';
 
 // Simple in-memory cache
 const apiCache: Record<string, { data: any; timestamp: number }> = {};
