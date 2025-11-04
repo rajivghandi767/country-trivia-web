@@ -3,17 +3,12 @@
 :root {
   --background: #ffffff;
   --foreground: #1a1a1a;
-  --primary: #000000;
-  --primary-foreground: #ffffff;
 }
 
 .dark {
   --background: #000000;
   --foreground: #e6e6e6;
-  --primary: #ffffff;
-  --primary-foreground: #000000;
 }
-
 body {
   background-color: var(--background);
   color: var(--foreground);

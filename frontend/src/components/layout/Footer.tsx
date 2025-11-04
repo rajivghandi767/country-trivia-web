@@ -16,7 +16,7 @@ const Footer = () => {
                 rel="noopener noreferrer"
                 className="hover:underline"
               >
-                Portfolio Website
+                Go to my Portfolio Website ➡️
               </a>
             </p>
           </div>
