@@ -3,17 +3,17 @@ import { Country } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
 
-// Import your reusable components
 import { Button } from "./common/Button";
 import { Card, CardContent, CardTitle } from "./common/Card";
 import { Section } from "./common/Section";
 import DataLoader from "./common/DataLoader";
-import FeedbackDisplay from "./common/FeedbackDisplay";
+import ResultDisplay from "./common/ResultDisplay";
 
-// Define the game modes
+// Define Game Modes
 type GameMode = "capital" | "country" | null;
-// Define feedback types
-type FeedbackType = "correct" | "incorrect" | null;
+
+// Define Result Types
+type ResultType = "correct" | "incorrect" | null;
 
 const Game = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -21,9 +21,9 @@ const Game = () => {
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const [score, setScore] = useState(0);
 
-  // Updated feedback state to store type and message
-  const [feedback, setFeedback] = useState<{
-    type: FeedbackType;
+  // Updated result state to store type and message
+  const [result, setResult] = useState<{
+    type: ResultType;
     message: string | null;
   }>({
     type: null,
@@ -46,7 +46,7 @@ const Game = () => {
     setCurrentIndex(0);
     setScore(0);
     setUserAnswer("");
-    setFeedback({ type: null, message: null });
+    setResult({ type: null, message: null });
     setIsAnswered(false);
   };
 
@@ -79,7 +79,7 @@ const Game = () => {
     // --- USE THE PARAMETER ---
     const currentQuestion = gameCountries[currentIndex];
     let correctAnswer: string;
-    let feedbackMessage: string;
+    let resultMessage: string;
 
     // --- START OF CHANGES ---
     const normalizedUserAnswer = normalizeAnswer(userAnswer);
@@ -90,11 +90,11 @@ const Game = () => {
       // --- START OF CHANGES ---
       if (normalizedUserAnswer === normalizeAnswer(correctAnswer)) {
         // --- END OF CHANGES ---
-        setFeedback({ type: "correct", message: "Correct!" });
+        setResult({ type: "correct", message: "Correct!" });
         setScore(score + 1);
       } else {
-        feedbackMessage = `Incorrect! The capital of ${currentQuestion.name} is ${correctAnswer}.`;
-        setFeedback({ type: "incorrect", message: feedbackMessage });
+        resultMessage = `Incorrect! The capital of ${currentQuestion.name} is ${correctAnswer}.`;
+        setResult({ type: "incorrect", message: resultMessage });
       }
     } else {
       // gameMode === "country"
@@ -102,11 +102,11 @@ const Game = () => {
       // --- START OF CHANGES ---
       if (normalizedUserAnswer === normalizeAnswer(correctAnswer)) {
         // --- END OF CHANGES ---
-        setFeedback({ type: "correct", message: "Correct!" });
+        setResult({ type: "correct", message: "Correct!" });
         setScore(score + 1);
       } else {
-        feedbackMessage = `Incorrect! ${currentQuestion.capital} is the capital of ${correctAnswer}.`;
-        setFeedback({ type: "incorrect", message: feedbackMessage });
+        resultMessage = `Incorrect! ${currentQuestion.capital} is the capital of ${correctAnswer}.`;
+        setResult({ type: "incorrect", message: resultMessage });
       }
     }
 
@@ -116,7 +116,7 @@ const Game = () => {
   // Move to the next question
   const handleNextQuestion = () => {
     setIsAnswered(false);
-    setFeedback({ type: null, message: null });
+    setResult({ type: null, message: null });
     setUserAnswer("");
     setCurrentIndex(currentIndex + 1);
   };
@@ -161,12 +161,12 @@ const Game = () => {
     return (
       <CardContent>
         {/* Score and Question Counter */}
-        <div className="flex justify-between items-center mb-4 text-sm">
+        <div className="flex justify-between items-center mb-4 text-sm text-gray-300">
           <span className="font-semibold">Score: {score}</span>
           <span>
             {/* --- ADD "Back" BUTTON AND USE THE PARAMETER --- */}
             <Button variant="link" size="sm" onClick={() => resetGame(null)}>
-              Back
+              Back to Game Modes
             </Button>
             | Question: {currentIndex + 1} / {gameCountries.length}
             {/* --- END OF CHANGES --- */}
@@ -185,7 +185,7 @@ const Game = () => {
             value={userAnswer}
             onChange={handleInputChange}
             disabled={isAnswered}
-            className="w-full p-3 border border-gray-300 rounded-lg text-black"
+            className="w-full p-3 border border-gray-300 rounded-lg bg-white text-black"
             placeholder="Type your answer..."
           />
 
@@ -210,8 +210,8 @@ const Game = () => {
           </Button>
         )}
 
-        {/* Feedback Area */}
-        <FeedbackDisplay type={feedback.type} message={feedback.message} />
+        {/* Result Area */}
+        <ResultDisplay type={result.type} message={result.message} />
       </CardContent>
     );
   };
@@ -243,7 +243,7 @@ const Game = () => {
         emptyMessage="Could not load trivia questions. Please try again later."
       >
         {(loadedCountries) => (
-          <Card className="max-w-xl mx-auto dark:bg-gray-800 shadow-xl">
+          <Card className="max-w-xl mx-auto shadow-xl">
             {
               !gameMode
                 ? renderModeSelection()

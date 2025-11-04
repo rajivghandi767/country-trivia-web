@@ -1,13 +1,13 @@
 import { CheckCircle, XCircle } from "lucide-react";
 
-interface FeedbackDisplayProps {
+interface ResultDisplayProps {
   type: "correct" | "incorrect" | null;
   message: string | null;
 }
 
-const FeedbackDisplay = ({ type, message }: FeedbackDisplayProps) => {
+const ResultDisplay = ({ type, message }: ResultDisplayProps) => {
   if (!type || !message) {
-    return null; // Don't render anything if there's no feedback
+    return null; // Don't render anything if there's no result
   }
 
   const isCorrect = type === "correct";
@@ -31,4 +31,4 @@ const FeedbackDisplay = ({ type, message }: FeedbackDisplayProps) => {
   );
 };
 
-export default FeedbackDisplay;
+export default ResultDisplay;
