@@ -37,7 +37,11 @@ function useApi<T>(
         throw new Error(result.error);
       }
       
-      setData(result.data as T);
+      if (result.data && (result.data as any).results) {
+        setData((result.data as any).results as T);
+      } else {
+        setData(result.data as T);
+      }
       
       // Store in cache if we have a cache key
       if (cacheKey) {

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Country } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
@@ -184,28 +184,31 @@ const Game = () => {
             type="text"
             value={userAnswer}
             onChange={handleInputChange}
-            disabled={isAnswered} // Disable input after answering
-            className="w-full p-3 border border-gray-300 rounded-lg text-black" // Added text-black for light mode readability
+            disabled={isAnswered}
+            className="w-full p-3 border border-gray-300 rounded-lg text-black"
             placeholder="Type your answer..."
           />
 
-          {/* Show Submit button OR Next button */}
-          {!isAnswered ? (
+          {/* Only show the Submit button inside the form */}
+          {!isAnswered && (
             <Button type="submit" size="lg" fullWidth className="mt-4">
               Submit
             </Button>
-          ) : (
-            <Button
-              type="button"
-              size="lg"
-              fullWidth
-              className="mt-4"
-              onClick={handleNextQuestion}
-            >
-              Next Question
-            </Button>
           )}
         </form>
+
+        {/* Show the Next Question button OUTSIDE the form */}
+        {isAnswered && (
+          <Button
+            type="button"
+            size="lg"
+            fullWidth
+            className="mt-4"
+            onClick={handleNextQuestion}
+          >
+            Next Question
+          </Button>
+        )}
 
         {/* Feedback Area */}
         <FeedbackDisplay type={feedback.type} message={feedback.message} />
@@ -232,14 +235,13 @@ const Game = () => {
 
   // --- MAIN COMPONENT RETURN ---
   return (
-    <Section id="game" title="Country Trivia">
+    <Section id="game">
       <DataLoader<Country>
         isLoading={isLoading}
         error={error}
         data={countries} // This now comes directly from useApi
         emptyMessage="Could not load trivia questions. Please try again later."
       >
-        {/* --- START OF CHANGES --- */}
         {(loadedCountries) => (
           <Card className="max-w-xl mx-auto dark:bg-gray-800 shadow-xl">
             {
@@ -249,7 +251,6 @@ const Game = () => {
             }
           </Card>
         )}
-        {/* --- END OF CHANGES --- */}
       </DataLoader>
     </Section>
   );
