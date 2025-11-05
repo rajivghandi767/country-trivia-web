@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Country } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
@@ -11,6 +11,12 @@ import ResultDisplay from "./common/ResultDisplay";
 
 // Define Game Modes
 type GameMode = "capital" | "country" | null;
+
+// Storage keys for high scores
+const HIGH_SCORE_KEYS = {
+  capital: "trivia-high-score-capital",
+  country: "trivia-high-score-country",
+};
 
 // Define Result Types
 type ResultType = "correct" | "incorrect" | null;
@@ -33,12 +39,25 @@ const Game = () => {
   // State to disable the form after an answer is given
   const [isAnswered, setIsAnswered] = useState(false);
 
+  const [highScores, setHighScores] = useState({ capital: 0, country: 0 });
+
   // Use the useApi hook
   const {
     data: countries,
     isLoading,
     error,
   } = useApi<Country[]>(() => apiService.trivia.getShuffledCountries());
+
+  // Load all high scores from localStorage on component mount
+  useEffect(() => {
+    const capitalScore = localStorage.getItem(HIGH_SCORE_KEYS.capital);
+    const countryScore = localStorage.getItem(HIGH_SCORE_KEYS.country);
+
+    setHighScores({
+      capital: capitalScore ? parseInt(capitalScore, 10) : 0,
+      country: countryScore ? parseInt(countryScore, 10) : 0,
+    });
+  }, []);
 
   // Function to reset the game state
   const resetGame = (mode: GameMode) => {
@@ -113,12 +132,53 @@ const Game = () => {
     setIsAnswered(true);
   };
 
+  // Handle skipping a question
+  const handleSkipQuestion = (
+    gameCountries: Country[] // Add this parameter
+  ) => {
+    if (isAnswered) return;
+
+    const currentQuestion = gameCountries[currentIndex];
+    let correctAnswer: string;
+    let resultMessage: string;
+
+    if (gameMode === "capital") {
+      correctAnswer = currentQuestion.capital;
+      resultMessage = `The capital of ${currentQuestion.name} is ${correctAnswer}.`;
+    } else {
+      // gameMode === "country"
+      correctAnswer = currentQuestion.name;
+      resultMessage = `${currentQuestion.capital} is the capital of ${correctAnswer}.`;
+    }
+
+    setResult({ type: "incorrect", message: resultMessage });
+    setIsAnswered(true);
+  };
+
   // Move to the next question
-  const handleNextQuestion = () => {
+  const handleNextQuestion = (gameCountries: Country[]) => {
+    // Add gameCountries parameter
+    const nextIndex = currentIndex + 1;
+
+    // Check if game is over
+    if (nextIndex >= gameCountries.length && gameMode) {
+      // Game is over, check for new high score
+      if (score > highScores[gameMode]) {
+        const key = HIGH_SCORE_KEYS[gameMode];
+        localStorage.setItem(key, score.toString());
+        // Update the high scores state
+        setHighScores((prevScores) => ({
+          ...prevScores,
+          [gameMode]: score,
+        }));
+      }
+    }
+
+    // Move to next question or game over screen
     setIsAnswered(false);
     setResult({ type: null, message: null });
     setUserAnswer("");
-    setCurrentIndex(currentIndex + 1);
+    setCurrentIndex(nextIndex); // Use nextIndex
   };
 
   // --- RENDER FUNCTIONS ---
@@ -135,10 +195,14 @@ const Game = () => {
           <CardTitle as="h2" className="text-center mb-4">
             Game Over!
           </CardTitle>
-          <p className="text-center text-lg mb-6">
-            {/* --- USE THE PARAMETER --- */}
-            Your final score is: {score} / {gameCountries.length}
-          </p>
+          <div className="text-center mb-6">
+            <p className="text-white text-2xl mb-2">
+              Your final score is: {score} / {gameCountries.length}
+            </p>
+            <p className="text-lg text-gray-400">
+              High Score: {gameMode && highScores[gameMode]}
+            </p>
+          </div>
           <div className="flex flex-col space-y-4">
             <Button size="lg" fullWidth onClick={() => resetGame(gameMode)}>
               Play Again
@@ -189,11 +253,21 @@ const Game = () => {
             placeholder="Type your answer..."
           />
 
-          {/* Only show the Submit button inside the form */}
+          {/* Action Buttons */}
           {!isAnswered && (
-            <Button type="submit" size="lg" fullWidth className="mt-4">
-              Submit
-            </Button>
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                fullWidth
+                onClick={() => handleSkipQuestion(gameCountries)}
+              >
+                I don't know!🤷🏽
+              </Button>
+              <Button type="submit" size="lg" fullWidth>
+                Submit
+              </Button>
+            </div>
           )}
         </form>
 
@@ -204,7 +278,7 @@ const Game = () => {
             size="lg"
             fullWidth
             className="mt-4"
-            onClick={handleNextQuestion}
+            onClick={() => handleNextQuestion(gameCountries)}
           >
             Next Question
           </Button>
@@ -224,10 +298,16 @@ const Game = () => {
       </CardTitle>
       <div className="flex flex-col space-y-4">
         <Button size="lg" fullWidth onClick={() => resetGame("capital")}>
-          Guess the Capital
+          <span>Guess the Capital </span>
+          <div className="text-xs font-normal text-gray-400">
+            (High Score: {highScores.capital})
+          </div>
         </Button>
         <Button size="lg" fullWidth onClick={() => resetGame("country")}>
-          Guess the Country
+          <span>Guess the Country </span>
+          <div className="text-xs font-normal text-gray-400">
+            (High Score: {highScores.country})
+          </div>
         </Button>
       </div>
     </CardContent>
