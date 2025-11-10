@@ -29,3 +29,5 @@ export interface AIQuestion {
   correctAnswer: string;
   funFact?: string;
 }
+
+export type GameMode = "capital" | "country" | "ai-quiz" | null;
