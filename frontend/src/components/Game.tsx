@@ -37,7 +37,12 @@ const Game = () => {
   const [isAnswered, setIsAnswered] = useState(false);
   const [highScores, setHighScores] = useState({ capital: 0, country: 0 });
   const [funFact, setFunFact] = useState<string | null>(null); // For Feature 2
-  const [currentAiTopic, setCurrentAiTopic] = useState<string>(""); // For Feature 3
+
+  // New state to trigger AI quiz fetch
+  const [aiQuizParams, setAiQuizParams] = useState<{
+    topic: string;
+    fresh: boolean;
+  } | null>(null);
 
   // --- FIX for Bug #2 (Same Quiz Order) ---
   // This state will be used to force the useApi hook to refetch
@@ -45,22 +50,33 @@ const Game = () => {
 
   // --- DATA STATES ---
 
-  // 1. Initial Country Data (loaded once)
+  // 1. Country Data
   const {
     data: countries,
     isLoading: isLoadingCountries,
     error: countriesError,
   } = useApi<Country[]>(
     () => apiService.trivia.getShuffledCountries(),
-    [gameId] // <-- FIX for Bug #2: Hook now refetches when gameId changes
+    [gameId] // Hook now refetches when gameId changes
   );
 
-  // 2. Active Game Data (either shuffled countries or AI questions)
-  const [gameData, setGameData] = useState<GameQuestion[]>([]);
+  // 2. AI Quiz Data (fetched on demand)
+  const {
+    data: aiQuizData,
+    isLoading: isLoadingAiQuiz,
+    error: aiQuizError,
+  } = useApi<AIQuestion[]>(
+    () =>
+      apiService.aiQuiz.generate(
+        aiQuizParams?.topic || "",
+        aiQuizParams?.fresh
+      ),
+    [aiQuizParams], // Re-run when params change
+    { skip: !aiQuizParams } // Don't run until params are set
+  );
 
-  // 3. AI Quiz specific states
-  const [isLoadingAiQuiz, setIsLoadingAiQuiz] = useState(false);
-  const [aiQuizError, setAiQuizError] = useState<string | null>(null);
+  // 3. Active Game Data (either shuffled countries or AI questions)
+  const [gameData, setGameData] = useState<GameQuestion[]>([]);
 
   // --- EFFECTS ---
 
@@ -85,7 +101,7 @@ const Game = () => {
     setResult({ type: null, message: null });
     setIsAnswered(false);
     setFunFact(null);
-    setAiQuizError(null);
+    setAiQuizParams(null); // Clear AI quiz params
 
     if (mode === "capital" || mode === "country") {
       // --- FIX for Bug #2 ---
@@ -102,19 +118,18 @@ const Game = () => {
   }, [countries, gameMode]);
 
   // Fetches and starts a new AI quiz
-  const startAiQuiz = async (topic: string) => {
-    setIsLoadingAiQuiz(true);
-    setAiQuizError(null);
+  const startAiQuiz = (topic: string, fresh: boolean = false) => {
     setGameData([]);
-    setCurrentAiTopic(topic);
     setGameMode("ai-quiz");
 
-    const result = await apiService.aiQuiz.generate(topic);
+    // This triggers the useApi hook to fetch data
+    setAiQuizParams({ topic, fresh });
+  };
 
-    if (result.error || !result.data || result.data.length === 0) {
-      setAiQuizError(result.error || "Failed to generate AI quiz.");
-    } else {
-      setGameData(result.data as AIQuestion[]);
+  // This effect loads the AI quiz data once the useApi hook finishes
+  useEffect(() => {
+    if (gameMode === "ai-quiz" && aiQuizData) {
+      setGameData(aiQuizData as AIQuestion[]);
       // Reset counters *after* data is loaded
       setCurrentIndex(0);
       setScore(0);
@@ -123,8 +138,7 @@ const Game = () => {
       setIsAnswered(false);
       setFunFact(null);
     }
-    setIsLoadingAiQuiz(false);
-  };
+  }, [aiQuizData, gameMode]);
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -328,7 +342,7 @@ const Game = () => {
               fullWidth
               onClick={() => {
                 if (gameMode === "ai-quiz") {
-                  startAiQuiz(currentAiTopic);
+                  startAiQuiz(aiQuizParams!.topic, true); // Request fresh questions
                 } else {
                   startGame(gameMode); // This now triggers a refetch
                 }
@@ -393,7 +407,6 @@ const Game = () => {
         <CardTitle as="h3" className="text-center mb-6 text-xl">
           {questionText}
         </CardTitle>
-
         {/* Answer Form */}
         <form onSubmit={(e) => handleSubmit(e, activeGameData)}>
           {gameMode === "ai-quiz" && options && (

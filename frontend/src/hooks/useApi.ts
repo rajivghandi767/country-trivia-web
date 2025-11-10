@@ -8,15 +8,16 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 function useApi<T>(
   apiCall: () => Promise<ApiResponse<T>>,
   dependencies: React.DependencyList = [],
-  cacheKey?: string, // Optional cache key
-  cacheTTL: number = CACHE_TTL // Optional TTL override
+  options: { cacheKey?: string; cacheTTL?: number; skip?: boolean } = {}
 ) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!options.skip); // Don't set loading if skipping
   const apiCallRef = useRef(apiCall);
 
   const fetchData = async (skipCache = false) => {
+    const { cacheKey, cacheTTL = CACHE_TTL } = options;
+
     setIsLoading(true);
     setError(null);
     
@@ -63,6 +64,12 @@ function useApi<T>(
   }, [apiCall]);
 
   useEffect(() => {
+    // If skip is true, don't fetch
+    if (options.skip) {
+      setIsLoading(false);
+      return;
+    }
+
     let isMounted = true;
     
     const execute = async () => {
@@ -84,7 +91,7 @@ function useApi<T>(
       isMounted = false;
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...dependencies]);
+  }, [...dependencies, options.skip]); // Add options.skip to dependency array
 
   return { 
     data, 

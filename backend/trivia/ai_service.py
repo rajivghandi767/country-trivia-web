@@ -2,8 +2,9 @@ import os
 import google.generativeai as genai
 import logging
 import json
-from functools import cache, lru_cache
+from functools import lru_cache
 from trivia.models import Country
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
 
@@ -318,7 +319,7 @@ def get_fun_fact(country_name):
     You are a trivia host. Give me one single, interesting "Did you know?" fun fact about {country_name}.
     The fact must be related to one of these topics: {topics}.
     The fact must be 1-2 sentences long.
-    Start the fact with "Did you know...?"
+    Start the fact with "Did you know"
     Respond with *only* the fact.
     """
 
@@ -329,12 +330,12 @@ def get_fun_fact(country_name):
         return fact
     except Exception as e:
         logger.error(f"Error getting fun fact for {country_name}: {e}")
-        return f"Did you know? {country_name} is a fascinating place to learn about!"
+        return f"Did you know {country_name} is a fascinating place to learn about!"
 
 # --- Feature 3: Dynamic Quiz Generator ---
 
 
-def generate_ai_quiz(topic):
+def generate_ai_quiz(topic, fresh=False):
     """
     Generates a new quiz (5 questions) based on a topic,
     including a fun fact for each answer.
@@ -343,7 +344,13 @@ def generate_ai_quiz(topic):
         return {"error": "AI features are currently disabled."}
 
     # --- CACHE LOGIC (Stays the same) ---
+
     cache_key = f"ai_quiz_{topic.replace(' ', '_').lower()}"
+
+    if fresh:
+        cache.delete(cache_key)
+        logger.info(f"CACHE BUST: 'fresh=true' requested for {topic}")
+
     cached_quiz = cache.get(cache_key)
     if cached_quiz:
         logger.info(f"CACHE HIT: Returning cached AI quiz for {topic}")
@@ -388,7 +395,7 @@ def generate_ai_quiz(topic):
         "question": "Which team is based in Maranello, Italy?",
         "options": ["Mercedes", "Red Bull", "McLaren", "Ferrari"],
         "correctAnswer": "Ferrari",
-        "funFact": "Did you know? Ferrari's headquarters in Maranello includes its own test track, the Pista di Fiorano."
+        "funFact": "Did you know that Ferrari's headquarters in Maranello includes its own test track, the Pista di Fiorano."
       }}
     ]
 

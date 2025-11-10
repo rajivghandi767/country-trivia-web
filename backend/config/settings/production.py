@@ -173,3 +173,18 @@ PROMETHEUS_LATENCY_BUCKETS = (
     0.008, 0.016, 0.032, 0.064, 0.128, 0.256, 0.512, 1.024, 2.048, 4.096, 8.192, 16.384, float(
         'inf')
 )
+
+# ============================================================================
+# CACHE CONFIGURATION
+# ============================================================================
+# Use DatabaseCache for a shared cache between Gunicorn workers
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.db.DatabaseCache',
+        'LOCATION': 'django_cache_table',
+        'TIMEOUT': 60 * 30,
+        'OPTIONS': {
+            'MAX_ENTRIES': 1000
+        }
+    }
+}
