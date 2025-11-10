@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Country } from "@/types";
+import { Country, AIAnswerResponse, AIQuestion } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
 
@@ -10,7 +10,7 @@ import DataLoader from "./common/DataLoader";
 import ResultDisplay from "./common/ResultDisplay";
 
 // Define Game Modes
-type GameMode = "capital" | "country" | null;
+type GameMode = "capital" | "country" | "ai-quiz" | null;
 
 // Storage keys for high scores
 const HIGH_SCORE_KEYS = {
@@ -26,6 +26,7 @@ const Game = () => {
   const [userAnswer, setUserAnswer] = useState("");
   const [gameMode, setGameMode] = useState<GameMode>(null);
   const [score, setScore] = useState(0);
+  const [funFact, setFunFact] = useState<string | null>(null);
 
   // Updated result state to store type and message
   const [result, setResult] = useState<{
@@ -88,48 +89,93 @@ const Game = () => {
   };
 
   // This is the core logic, translating your 'check_answer' functions
-  const handleSubmit = (
+  // frontend/src/components/Game.tsx
+
+  const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>,
-    gameCountries: Country[] // Add this parameter
+    activeGameData: GameQuestion[]
   ) => {
     e.preventDefault();
     if (isAnswered) return;
+    setIsAnswered(true); // Set answered immediately
 
-    // --- USE THE PARAMETER ---
-    const currentQuestion = gameCountries[currentIndex];
-    let correctAnswer: string;
-    let resultMessage: string;
+    const currentQuestion = activeGameData[currentIndex];
 
-    // --- START OF CHANGES ---
-    const normalizedUserAnswer = normalizeAnswer(userAnswer);
-    // --- END OF CHANGES ---
+    // --- AI Quiz Logic (Feature 3) ---
+    if (gameMode === "ai-quiz") {
+      const aiQuestion = currentQuestion as AIQuestion;
+      const normalizedUserAnswer = normalizeAnswer(userAnswer);
+      const normalizedCorrectAnswer = normalizeAnswer(aiQuestion.correctAnswer);
 
-    if (gameMode === "capital") {
-      correctAnswer = currentQuestion.capital;
-      // --- START OF CHANGES ---
-      if (normalizedUserAnswer === normalizeAnswer(correctAnswer)) {
-        // --- END OF CHANGES ---
+      if (normalizedUserAnswer === normalizedCorrectAnswer) {
         setResult({ type: "correct", message: "Correct!" });
         setScore(score + 1);
       } else {
-        resultMessage = `Incorrect! The capital of ${currentQuestion.name} is ${correctAnswer}.`;
-        setResult({ type: "incorrect", message: resultMessage });
+        setResult({
+          type: "incorrect",
+          message: `Incorrect! The correct answer is ${aiQuestion.correctAnswer}.`,
+        });
       }
-    } else {
-      // gameMode === "country"
-      correctAnswer = currentQuestion.name;
-      // --- START OF CHANGES ---
-      if (normalizedUserAnswer === normalizeAnswer(correctAnswer)) {
-        // --- END OF CHANGES ---
-        setResult({ type: "correct", message: "Correct!" });
-        setScore(score + 1);
-      } else {
-        resultMessage = `Incorrect! ${currentQuestion.capital} is the capital of ${correctAnswer}.`;
-        setResult({ type: "incorrect", message: resultMessage });
-      }
+      return; // Stop here for AI quiz
     }
 
-    setIsAnswered(true);
+    // --- Country/Capital Logic (Feature 1) ---
+    const countryQuestion = currentQuestion as Country;
+    setFunFact("Loading fun fact..."); // For Feature 2
+
+    try {
+      // --- THIS IS THE KEY ---
+      // We are now correctly passing gameMode to the API
+      const result = await apiService.trivia.checkAnswer(
+        countryQuestion.id,
+        userAnswer,
+        gameMode! // We know gameMode is 'capital' or 'country' here
+      );
+
+      if (result.error || !result.data) {
+        throw new Error(result.error || "No data from AI grader");
+      }
+
+      const aiResponse = result.data as AIAnswerResponse; // Use our flexible type
+
+      // Construct final feedback message
+      let finalMessage = aiResponse.feedback_message;
+
+      // Check if shared_capital_info exists (it's optional)
+      if (aiResponse.shared_capital_info) {
+        finalMessage += ` (${aiResponse.shared_capital_info})`;
+      }
+
+      if (aiResponse.is_correct) {
+        setResult({ type: "correct", message: finalMessage });
+
+        // Use points_awarded if it exists, otherwise default to 1
+        // (grade_country_answer doesn't send points, so it will be 1)
+        setScore(score + (aiResponse.points_awarded || 1));
+      } else {
+        setResult({ type: "incorrect", message: finalMessage });
+      }
+    } catch (err) {
+      console.error("Failed to check answer:", err);
+      // Fallback message if API fails
+      setResult({
+        type: "incorrect",
+        message: "Error grading answer. Please try again.",
+      });
+    }
+
+    // --- Fun Fact Logic (Feature 2) ---
+    try {
+      const factResult = await apiService.trivia.getFunFact(countryQuestion.id);
+      if (factResult.data) {
+        setFunFact(factResult.data.fact);
+      } else {
+        setFunFact(null); // Don't show if it fails
+      }
+    } catch (err) {
+      console.error("Failed to fetch fun fact:", err);
+      setFunFact(null);
+    }
   };
 
   // Handle skipping a question
@@ -286,6 +332,11 @@ const Game = () => {
 
         {/* Result Area */}
         <ResultDisplay type={result.type} message={result.message} />
+        {funFact && (
+          <div className="mt-4 text-sm text-gray-400">
+            <p>Fun Fact: {funFact}</p>
+          </div>
+        )}
       </CardContent>
     );
   };
