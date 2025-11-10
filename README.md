@@ -8,7 +8,7 @@ A full-stack, AI-enhanced web application that tests your knowledge of world geo
 
 ## 📜 Table of Contents
 
-- [About The Project](#-about-the-project)
+- [📖 About The Project](#-about-the-project)
 - [✨ Features](#-features)
 - [🔧 Tech Stack](#-tech-stack)
 - [🚀 Getting Started](#-getting-started)
@@ -36,7 +36,7 @@ This project serves as a practical application for strengthening full-stack deve
 - **Two Classic Game Modes**: Guess the capital city or guess the country.
 - **AI-Powered Grading**: Utilizes Google Generative AI to intelligently grade answers, correctly identifying misspellings, abbreviations, and partial answers (e.g., "Pretoria" for South Africa).
 - **AI-Generated Fun Facts**: Provides a unique, AI-generated "Did you know?" fact after each question is answered.
-- **Dynamic AI Quizzes**: Features AI-generated, multiple-choice quizzes on various topics, including Formula 1, World Football, and Travel Hacking.
+- **Dynamic AI Quizzes**: Features AI-generated, multiple-choice quizzes on various topics, including Formula 1, World Football, and Caribbean History.
 - **Immediate Feedback**: Instantly know if your answer was correct, incorrect, or partially correct.
 - **Score Tracking**: Keep track of your score as you progress through the questions.
 - **High Score Persistence**: Saves your high score for classic modes in the browser's local storage.
