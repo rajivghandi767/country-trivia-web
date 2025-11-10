@@ -1,8 +1,8 @@
-// frontend/src/components/Game.tsx
 import { useEffect, useState } from "react";
 import { Country, AIAnswerResponse, AIQuestion } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
+import { cn } from "@/utils/styleUtils";
 
 import { Button } from "./common/Button";
 import { Card, CardContent, CardTitle } from "./common/Card";
@@ -10,9 +10,10 @@ import { Section } from "./common/Section";
 import DataLoader from "./common/DataLoader";
 import ResultDisplay from "./common/ResultDisplay";
 
+// --- GAME MODES & TYPES ---
 type GameMode = "capital" | "country" | "ai-quiz" | null;
 type ResultType = "correct" | "incorrect" | null;
-type GameQuestion = Country | AIQuestion;
+type GameQuestion = Country | AIQuestion; // Unified question type
 
 // Storage keys for high scores
 const HIGH_SCORE_KEYS = {
@@ -21,6 +22,7 @@ const HIGH_SCORE_KEYS = {
 };
 
 const Game = () => {
+  // --- STATES ---
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userAnswer, setUserAnswer] = useState("");
   const [gameMode, setGameMode] = useState<GameMode>(null);
@@ -37,20 +39,28 @@ const Game = () => {
   const [funFact, setFunFact] = useState<string | null>(null); // For Feature 2
   const [currentAiTopic, setCurrentAiTopic] = useState<string>(""); // For Feature 3
 
-  // This state holds the *raw* country data
+  // --- FIX for Bug #2 (Same Quiz Order) ---
+  // This state will be used to force the useApi hook to refetch
+  const [gameId, setGameId] = useState(0);
+
+  // --- DATA STATES ---
+
+  // 1. Initial Country Data (loaded once)
   const {
     data: countries,
     isLoading: isLoadingCountries,
     error: countriesError,
   } = useApi<Country[]>(
     () => apiService.trivia.getShuffledCountries(),
-    ["countries"]
+    [gameId] // <-- FIX for Bug #2: Hook now refetches when gameId changes
   );
 
-  // This state holds the *active* game data (could be countries or AI questions)
+  // 2. Active Game Data (either shuffled countries or AI questions)
   const [gameData, setGameData] = useState<GameQuestion[]>([]);
-  const [isLoadingGame, setIsLoadingGame] = useState(true);
-  const [gameError, setGameError] = useState<string | null>(null);
+
+  // 3. AI Quiz specific states
+  const [isLoadingAiQuiz, setIsLoadingAiQuiz] = useState(false);
+  const [aiQuizError, setAiQuizError] = useState<string | null>(null);
 
   // --- EFFECTS ---
 
@@ -64,17 +74,9 @@ const Game = () => {
     });
   }, []);
 
-  useEffect(() => {
-    setIsLoadingGame(isLoadingCountries);
-  }, [isLoadingCountries]);
-
-  useEffect(() => {
-    setGameError(countriesError);
-  }, [countriesError]);
-
   // --- GAME LOGIC FUNCTIONS ---
 
-  // Resets and starts a new game
+  // Resets game to a specific mode
   const startGame = (mode: GameMode) => {
     setGameMode(mode);
     setCurrentIndex(0);
@@ -83,38 +85,45 @@ const Game = () => {
     setResult({ type: null, message: null });
     setIsAnswered(false);
     setFunFact(null);
-    setGameError(null); // Clear errors on new game
+    setAiQuizError(null);
 
-    // If it's a standard game, just use the loaded countries
     if (mode === "capital" || mode === "country") {
-      if (countries) {
-        // Re-shuffle the countries for a new game
-        const shuffledCountries = [...countries].sort(
-          () => Math.random() - 0.5
-        );
-        setGameData(shuffledCountries);
-      } else if (countriesError) {
-        setGameError(countriesError);
-      }
+      // --- FIX for Bug #2 ---
+      // Force a refetch of shuffled countries from the backend
+      setGameId((id) => id + 1);
     }
   };
 
+  // This effect runs when 'countries' data changes (due to the refetch)
+  useEffect(() => {
+    if ((gameMode === "capital" || gameMode === "country") && countries) {
+      setGameData(countries); // Load the new shuffled list
+    }
+  }, [countries, gameMode]);
+
   // Fetches and starts a new AI quiz
   const startAiQuiz = async (topic: string) => {
-    setIsLoadingGame(true);
-    setGameError(null);
+    setIsLoadingAiQuiz(true);
+    setAiQuizError(null);
     setGameData([]);
-    setCurrentAiTopic(topic); // Remember the topic for "Play Again"
+    setCurrentAiTopic(topic);
+    setGameMode("ai-quiz");
 
     const result = await apiService.aiQuiz.generate(topic);
 
     if (result.error || !result.data || result.data.length === 0) {
-      setGameError(result.error || "Failed to generate AI quiz.");
+      setAiQuizError(result.error || "Failed to generate AI quiz.");
     } else {
       setGameData(result.data as AIQuestion[]);
-      startGame("ai-quiz"); // Call startGame to reset states
+      // Reset counters *after* data is loaded
+      setCurrentIndex(0);
+      setScore(0);
+      setUserAnswer("");
+      setResult({ type: null, message: null });
+      setIsAnswered(false);
+      setFunFact(null);
     }
-    setIsLoadingGame(false);
+    setIsLoadingAiQuiz(false);
   };
 
   // Handle input change
@@ -124,118 +133,125 @@ const Game = () => {
 
   /**
    * Normalizes an answer string for simple comparison.
-   * - Trims whitespace from ends.
-   * - Converts to lowercase.
-   * - Removes punctuation like ' , . -
    */
   const normalizeAnswer = (answer: string): string => {
     return answer
       .trim()
       .toLowerCase()
-      .replace(/[',.-]/g, ""); // Removes ' , . -
+      .replace(/[',.-]/g, "");
   };
 
-  // This is the core logic, translating your 'check_answer' functions
+  // --- FIX for Bug #4 (AI Quiz Answers) ---
+  // We create a dedicated handler for AI quiz buttons
+  // This avoids the React state update timing issue.
+  const handleAiQuizAnswer = (
+    option: string,
+    activeGameData: GameQuestion[]
+  ) => {
+    if (isAnswered) return;
+    setIsAnswered(true);
+
+    const currentQuestion = activeGameData[currentIndex] as AIQuestion;
+    const normalizedUserAnswer = normalizeAnswer(option);
+    const normalizedCorrectAnswer = normalizeAnswer(
+      currentQuestion.correctAnswer
+    );
+
+    if (normalizedUserAnswer === normalizedCorrectAnswer) {
+      setResult({ type: "correct", message: "Correct!" });
+      setScore(score + 1);
+    } else {
+      setResult({
+        type: "incorrect",
+        message: `Incorrect! The correct answer is ${currentQuestion.correctAnswer}.`,
+      });
+    }
+  };
+
+  // Handles answer submission for standard modes
   const handleSubmit = async (
     e: React.FormEvent<HTMLFormElement>,
     activeGameData: GameQuestion[]
   ) => {
     e.preventDefault();
     if (isAnswered) return;
+
+    // --- FIX for Bug #3 (Empty Submit) ---
+    if (!userAnswer.trim()) {
+      setResult({
+        type: "incorrect",
+        message: 'Please type an answer or click "I don\'t know!"',
+      });
+      setIsAnswered(true); // Treat as answered to show 'Next' button
+      return;
+    }
+    // --- End Fix ---
+
     setIsAnswered(true); // Set answered immediately
 
-    const currentQuestion = activeGameData[currentIndex];
-
-    // --- AI Quiz Logic (Feature 3) ---
-    if (gameMode === "ai-quiz") {
-      const aiQuestion = currentQuestion as AIQuestion;
-      const normalizedUserAnswer = normalizeAnswer(userAnswer);
-      const normalizedCorrectAnswer = normalizeAnswer(aiQuestion.correctAnswer);
-
-      if (normalizedUserAnswer === normalizedCorrectAnswer) {
-        setResult({ type: "correct", message: "Correct!" });
-        setScore(score + 1);
-      } else {
-        setResult({
-          type: "incorrect",
-          message: `Incorrect! The correct answer is ${aiQuestion.correctAnswer}.`,
-        });
-      }
-      return; // Stop here for AI quiz
-    }
-
-    // --- Country/Capital Logic (Feature 1) ---
-    const countryQuestion = currentQuestion as Country;
+    // This must be a Country/Capital question
+    const countryQuestion = activeGameData[currentIndex] as Country;
     setFunFact("Loading fun fact..."); // For Feature 2
 
     try {
-      // Pass the gameMode to the API
-      const result = await apiService.trivia.checkAnswer(
-        countryQuestion.id,
-        userAnswer,
-        gameMode! // We know gameMode is 'capital' or 'country' here
-      );
+      // Run both API calls in parallel for speed
+      const [answerResult, factResult] = await Promise.all([
+        apiService.trivia.checkAnswer(
+          countryQuestion.id,
+          userAnswer,
+          gameMode!
+        ),
+        apiService.trivia.getFunFact(countryQuestion.id),
+      ]);
 
-      if (result.error || !result.data) {
-        throw new Error(result.error || "No data from AI grader");
+      // --- Handle Answer Result ---
+      if (answerResult.error || !answerResult.data) {
+        throw new Error(answerResult.error || "No data from AI grader");
       }
 
-      const aiResponse = result.data as AIAnswerResponse; // Use our flexible type
-
-      // Construct final feedback message
+      const aiResponse = answerResult.data as AIAnswerResponse;
       let finalMessage = aiResponse.feedback_message;
-
-      // Check if shared_capital_info exists (it's optional)
       if (aiResponse.shared_capital_info) {
         finalMessage += ` (${aiResponse.shared_capital_info})`;
       }
 
       if (aiResponse.is_correct) {
         setResult({ type: "correct", message: finalMessage });
-
-        // Use points_awarded if it exists, otherwise default to 1
         setScore(score + (aiResponse.points_awarded || 1));
       } else {
         setResult({ type: "incorrect", message: finalMessage });
       }
+
+      // --- Handle Fun Fact Result ---
+      if (factResult.data) {
+        setFunFact(factResult.data.fact);
+      } else {
+        setFunFact(null);
+      }
     } catch (err) {
-      console.error("Failed to check answer:", err);
-      // Fallback message if API fails
+      console.error("Failed to check answer or get fun fact:", err);
       setResult({
         type: "incorrect",
         message: "Error grading answer. Please try again.",
       });
-    }
-
-    // --- Fun Fact Logic (Feature 2) ---
-    try {
-      const factResult = await apiService.trivia.getFunFact(countryQuestion.id);
-      if (factResult.data) {
-        setFunFact(factResult.data.fact);
-      } else {
-        setFunFact(null); // Don't show if it fails
-      }
-    } catch (err) {
-      console.error("Failed to fetch fun fact:", err);
-      setFunFact(null);
+      setFunFact(null); // Clear fun fact on error
     }
   };
 
-  // Handle skipping a question
-  const handleSkipQuestion = (
-    gameCountries: Country[] // Add this parameter
-  ) => {
-    if (isAnswered) return;
+  // --- FIX for Bug #1 (Fun Fact on Skip) ---
+  const handleSkipQuestion = async (activeGameData: GameQuestion[]) => {
+    if (isAnswered || gameMode === "ai-quiz" || !activeGameData.length) return;
+    setIsAnswered(true);
+    setFunFact("Loading fun fact..."); // Set loading state
 
-    const currentQuestion = gameCountries[currentIndex];
+    const currentQuestion = activeGameData[currentIndex] as Country;
     let correctAnswer: string;
     let resultMessage: string;
 
     if (gameMode === "capital") {
-      correctAnswer = currentQuestion.capital.replace("|", ", ");
+      correctAnswer = currentQuestion.capital.replace(/\|/g, ", ");
       resultMessage = `The capital(s) of ${currentQuestion.name} are: ${correctAnswer}.`;
     } else {
-      // gameMode === "country"
       correctAnswer = currentQuestion.name;
       resultMessage = `${
         currentQuestion.capital.split("|")[0]
@@ -243,22 +259,30 @@ const Game = () => {
     }
 
     setResult({ type: "incorrect", message: resultMessage });
-    setIsAnswered(true);
-    setFunFact(null); // Don't fetch fun fact on skip
+
+    // --- Add API call ---
+    try {
+      const factResult = await apiService.trivia.getFunFact(currentQuestion.id);
+      if (factResult.data) {
+        setFunFact(factResult.data.fact);
+      } else {
+        setFunFact(null);
+      }
+    } catch (err) {
+      console.error("Failed to fetch fun fact:", err);
+      setFunFact(null);
+    }
   };
 
   // Move to the next question
   const handleNextQuestion = (activeGameData: GameQuestion[]) => {
     const nextIndex = currentIndex + 1;
 
-    // Check if game is over
     if (nextIndex >= activeGameData.length && gameMode) {
-      // High score logic only for standard modes
       if (gameMode === "capital" || gameMode === "country") {
         if (score > highScores[gameMode]) {
           const key = HIGH_SCORE_KEYS[gameMode];
           localStorage.setItem(key, score.toString());
-          // Update the high scores state
           setHighScores((prevScores) => ({
             ...prevScores,
             [gameMode]: score,
@@ -267,19 +291,19 @@ const Game = () => {
       }
     }
 
-    // Move to next question or game over screen
+    // --- FIX for Bug #1 (Persisting State) ---
     setIsAnswered(false);
-    setResult({ type: null, message: null });
+    setResult({ type: null, message: null }); // Clears the feedback
     setUserAnswer("");
-    setFunFact(null); // Clear fun fact
+    setFunFact(null); // Clears the fun fact
     setCurrentIndex(nextIndex);
+    // --- End Fix ---
   };
 
   // --- RENDER FUNCTIONS ---
 
-  // Renders the main game UI (questions, input, etc.)
+  // Renders the main game UI
   const renderGameInterface = (activeGameData: GameQuestion[]) => {
-    // Handle Game Over
     const isGameOver = currentIndex >= activeGameData.length;
 
     if (isGameOver) {
@@ -292,10 +316,9 @@ const Game = () => {
             <p className="text-white text-2xl mb-2">
               Your final score is: {score} / {activeGameData.length}
             </p>
-            {/* Only show high score for standard modes */}
             {(gameMode === "capital" || gameMode === "country") && (
               <p className="text-lg text-gray-400">
-                High Score: {gameMode && highScores[gameMode]}
+                High Score: {highScores[gameMode]}
               </p>
             )}
           </div>
@@ -305,9 +328,9 @@ const Game = () => {
               fullWidth
               onClick={() => {
                 if (gameMode === "ai-quiz") {
-                  startAiQuiz(currentAiTopic); // Replay AI quiz
+                  startAiQuiz(currentAiTopic);
                 } else {
-                  startGame(gameMode); // Replay standard game
+                  startGame(gameMode); // This now triggers a refetch
                 }
               }}
             >
@@ -316,7 +339,10 @@ const Game = () => {
             <Button
               variant="outline"
               fullWidth
-              onClick={() => setGameMode(null)} // Go back to menu
+              onClick={() => {
+                setGameMode(null);
+                setGameId((id) => id + 1); // Refetch countries for next time
+              }}
             >
               Back to Menu
             </Button>
@@ -325,16 +351,14 @@ const Game = () => {
       );
     }
 
-    // Get the current question
     const currentQuestion = activeGameData[currentIndex];
     let questionText = "";
     let options: string[] | null = null;
 
-    // --- Logic to display correct question type ---
     if (gameMode === "ai-quiz") {
       const aiQuestion = currentQuestion as AIQuestion;
       questionText = aiQuestion.question;
-      options = aiQuestion.options; // We'll render these later
+      options = aiQuestion.options;
     } else {
       const countryQuestion = currentQuestion as Country;
       questionText =
@@ -354,7 +378,10 @@ const Game = () => {
             <Button
               variant="link"
               size="sm"
-              onClick={() => setGameMode(null)} // Go back to menu
+              onClick={() => {
+                setGameMode(null);
+                setGameId((id) => id + 1); // Refetch countries for next time
+              }}
             >
               Back to Game Modes
             </Button>
@@ -369,7 +396,6 @@ const Game = () => {
 
         {/* Answer Form */}
         <form onSubmit={(e) => handleSubmit(e, activeGameData)}>
-          {/* Render options for AI quiz */}
           {gameMode === "ai-quiz" && options && (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
               {options.map((option) => (
@@ -380,12 +406,9 @@ const Game = () => {
                   fullWidth
                   disabled={isAnswered}
                   onClick={() => {
-                    setUserAnswer(option);
-                    // Manually submit form
-                    const fakeEvent = {
-                      preventDefault: () => {},
-                    } as React.FormEvent<HTMLFormElement>;
-                    handleSubmit(fakeEvent, activeGameData);
+                    // --- FIX for Bug #4 ---
+                    // Pass option directly, don't use state
+                    handleAiQuizAnswer(option, activeGameData);
                   }}
                 >
                   {option}
@@ -394,7 +417,6 @@ const Game = () => {
             </div>
           )}
 
-          {/* Text Input (always shown, but hidden for AI quiz to save space) */}
           <input
             type="text"
             value={userAnswer}
@@ -408,14 +430,13 @@ const Game = () => {
             autoFocus
           />
 
-          {/* Action Buttons (don't show for AI quiz) */}
           {!isAnswered && gameMode !== "ai-quiz" && (
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
                 variant="outline"
                 fullWidth
-                onClick={() => handleSkipQuestion(countries || [])}
+                onClick={() => handleSkipQuestion(activeGameData)} // <-- Pass activeGameData
               >
                 I don't know!🤷🏽
               </Button>
@@ -426,7 +447,6 @@ const Game = () => {
           )}
         </form>
 
-        {/* Show the Next Question button OUTSIDE the form */}
         {isAnswered && (
           <Button
             type="button"
@@ -439,12 +459,16 @@ const Game = () => {
           </Button>
         )}
 
-        {/* Result Area */}
+        {/* This will now be correctly cleared on "Next Question" */}
         <ResultDisplay type={result.type} message={result.message} />
 
-        {/* Fun Fact Area (only for standard modes) */}
         {funFact && (
-          <div className="mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-md text-sm text-center italic">
+          <div
+            className={cn(
+              "mt-4 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-sm text-center italic",
+              "text-gray-900 dark:text-gray-300"
+            )}
+          >
             {funFact}
           </div>
         )}
@@ -518,23 +542,71 @@ const Game = () => {
     </CardContent>
   );
 
+  // This is a new wrapper component that lives *inside* the DataLoader
+  const GameWrapper = () => {
+    // Render AI Quiz loader/error
+    if (gameMode === "ai-quiz") {
+      if (isLoadingAiQuiz) {
+        return (
+          <Card className="max-w-xl mx-auto shadow-xl">
+            <CardContent>
+              <div className="flex flex-col justify-center items-center py-12 min-h-[300px]">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                <p>Generating your quiz...</p>
+              </div>
+            </CardContent>
+          </Card>
+        );
+      }
+      if (aiQuizError) {
+        return (
+          <Card className="max-w-xl mx-auto shadow-xl">
+            <CardContent>
+              <ResultDisplay type="incorrect" message={aiQuizError} />
+              <Button
+                variant="outline"
+                fullWidth
+                className="mt-4"
+                onClick={() => setGameMode(null)}
+              >
+                Back to Menu
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      }
+      // If we have AI gameData, render the interface
+      return (
+        <Card className="max-w-xl mx-auto shadow-xl">
+          {renderGameInterface(gameData)}
+        </Card>
+      );
+    }
+
+    // Render Standard Game (Menu or Interface)
+    // If gameMode is null, show menu. If it's set, show game.
+    return (
+      <Card className="max-w-xl mx-auto shadow-xl">
+        {!gameMode
+          ? renderModeSelection()
+          : renderGameInterface(gameData.length ? gameData : countries || [])}
+      </Card>
+    );
+  };
+
   // --- MAIN COMPONENT RETURN ---
   return (
     <Section id="game">
-      <DataLoader<GameQuestion>
-        isLoading={isLoadingGame} // Use the new generic loading state
-        error={gameError} // Use the new generic error state
-        data={gameData} // Use the new generic gameData state
+      {/* This DataLoader now *only* worries about the initial country load. */}
+      <DataLoader<Country>
+        isLoading={isLoadingCountries}
+        error={countriesError}
+        data={countries} // This is the fix for the "Could not load..." error
         emptyMessage="Could not load trivia questions. Please try again later."
       >
-        {(loadedGameData) => (
-          <Card className="max-w-xl mx-auto shadow-xl">
-            {
-              !gameMode
-                ? renderModeSelection()
-                : renderGameInterface(loadedGameData) // Pass the data in
-            }
-          </Card>
+        {() => (
+          // The wrapper now handles all other logic *after* countries are loaded.
+          <GameWrapper />
         )}
       </DataLoader>
     </Section>

@@ -2,7 +2,7 @@ import os
 import google.generativeai as genai
 import logging
 import json
-from functools import lru_cache
+from functools import cache, lru_cache
 from trivia.models import Country
 
 logger = logging.getLogger(__name__)
@@ -66,7 +66,6 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
     """
     if not api_key:
         logger.error("GEMINI_API_KEY not set. Cannot grade answer.")
-        # Fallback to simple check
         is_correct = user_answer_str.lower() in correct_capitals_str.lower()
         capitals_list = correct_capitals_str.replace('|', ', ')
         capital_label = "capital is" if len(
@@ -105,6 +104,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
             if other_countries:
                 shared_capitals_context[capital] = other_countries
 
+    # --- UPDATED PROMPT ---
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a capital city question.
     You must provide your response *only* in the specified JSON format.
@@ -118,21 +118,24 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
 
     **Your Task:**
     1.  Parse the "User's Answer". It may contain multiple answers separated by commas, misspellings, or abbreviations.
-    2.  Compare the parsed user answers to the "Full List of Correct Capital(s)". Be lenient with common misspellings (e.g., "Washinton" for "Washington", "Bloemfontien" for "Bloemfontein").
+    2.  Compare the parsed user answers to the "Full List of Correct Capital(s)". Be lenient with common misspellings (e.g., "Washinton" for "Washington", "Bloemfontien" for "Bloemfontein", "talin" for "Tallinn", "hararee" for "Harare").
     3.  Identify all correctly guessed capitals.
     4.  Identify all user guesses that are clearly incorrect.
     5.  Identify any correct capitals from the list that the user *missed*.
-    6.  Create a "shared_capital_info" message *only* if a user's *correct guess* is also a capital of another country (using the provided Context). For example: "Also, Kingston is the capital of Norfolk Island."
-    
-    7.  **Create a final "feedback_message" to explain the result.
+    6.  Create a "shared_capital_info" message *only* if a user's *correct guess* is also a capital of another country (using the provided Context).
+
+    7.  **Create a final "feedback_message" to explain the result.**
         **Grammar Rules:** Use "capital is" if "Number of Correct Capitals" is 1. Use "capitals are" if "Number of Correct Capitals" is greater than 1.
-        
-        **Feedback Message Examples (Follow these formats):**
-        - If 100% correct (all capitals guessed, 1 capital): "Correct! The capital of {country_name} is {correct_capitals_list[0]}."
-        - If 100% correct (all capitals guessed, 3 capitals): "Correct! The 3 capitals of {country_name} are: {", ".join(correct_capitals_list)}. You got them all!"
-        - If partially correct (guessed 1 of 3): "Partially correct! You found 1 of the 3 capitals: [Guessed Capital]. The capital cities of {country_name} are: {", ".join(correct_capitals_list)}." Join the list with commas except for the last item, which should be preceded by "&".
-        - If 0% correct (1 capital): "Incorrect. The capital of {country_name} is {correct_capitals_list[0]}."
-        - If 0% correct (3 capitals): "Incorrect. {country_name} has 3 capitals, {", ".join(correct_capitals_list)}." Join the list with commas except for the last item, which should be preceded by "&".
+
+        **Feedback Message Logic (CRITICAL):**
+        - **If `all_capitals_guessed` is true (User is 100% correct, including misspellings):**
+            - (1 capital): "Correct! The capital of {country_name} is {correct_capitals_list[0]}."
+            - (>1 capital): "Correct! The {capital_count} capitals of {country_name} are: {", ".join(correct_capitals_list)}. You got them all!"
+        - **If `is_correct` is true BUT `all_capitals_guessed` is false (User is partially correct):**
+            - (Must be >1 capital): "Partially correct! You found [count] of the {capital_count} capitals: [list of correct guesses]. The capital cities of {country_name} are: {", ".join(correct_capitals_list)}." Join the list of correct guesses with commas except for the last two, which should be joined with " & ".
+        - **If `is_correct` is false (User is 0% correct):**
+            - (1 capital): "Incorrect. The capital of {country_name} is {correct_capitals_list[0]}."
+            - (>1 capital): "Incorrect. {", ".join(correct_capitals_list)} are the [count] capitals of {country_name}." Join the list of capitals with commas except for the last two, which should be joined with " & ".
         """ + """
     **JSON Output Format:**
     {{
@@ -151,7 +154,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
     - "all_capitals_guessed": true only if *all* correct capitals are guessed and there are *no* incorrect guesses.
     - "points_awarded": The count of "correct_guesses". Add a +1 bonus point if "all_capitals_guessed" is true.
     - "shared_capital_info": Null if no shared capitals were guessed.
-    
+
     **CRITICAL: Respond ONLY with the raw JSON object.**
     """
 
@@ -165,7 +168,6 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
     except Exception as e:
         logger.error(
             f"Error calling Gemini or parsing JSON for capital: {e}\nResponse: {response.text if 'response' in locals() else 'N/A'}")
-        # Generate a safe fallback with the correct grammar
         capitals_list_str = correct_capitals_str.replace('|', ', ')
         capital_label = "capital is" if capital_count == 1 else "capitals are"
         return {
@@ -204,7 +206,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     }
 
     model = genai.GenerativeModel(
-        model_name=ACTIVE_MODEL_NAME,  # Uses environment-aware model
+        model_name=ACTIVE_MODEL_NAME,
         generation_config=generation_config,
     )
 
@@ -229,22 +231,25 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 
     **Your Task:**
     1.  Determine if "User's Answer" is a correct match for "The Correct Country".
-    2.  Be lenient. "USA", "United States", "America", and "U.S.A" are all correct for "United States".
-    3.  "UK" or "Great Britain" are correct for "United Kingdom".
-    4.  "Ivory Coast" is correct for "Côte d'Ivoire".
-    5.  Check for common misspellings.
-    
-    6.  **Create a "feedback_message" based on the result:**
-        - **If Incorrect:** "Incorrect. {capital_name_for_context} is the capital of {correct_country_name}."
-        - **If Correct (and 1 total capital):** "Correct! {capital_name_for_context} is the capital of {correct_country_name}."
-        - **If Correct (and >1 total capital):** - Identify the other capitals from the "Full List of Capitals".
-          - Format: "Correct! {capital_name_for_context} is one of the {capital_count} capitals of {correct_country_name}. The other capital cities are: [list of other capitals]."
-          - Example: "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are Cape Town & Bloemfontein."
+    2.  Be lenient with common misspellings (e.g., "Grmany" for "Germany").
+    3.  Be lenient with common names/abbreviations. "USA", "United States", "America", and "U.S.A" are all correct for "United States". "UK" or "Great Britain" are correct for "United Kingdom". "Ivory Coast" is correct for "Côte d'Ivoire".
+
+    4.  **Create a "feedback_message" based on the result:**
+        - **If Incorrect:**
+            - First, check if the "User's Answer" is *another* country that shares the *same capital* (using the "All known capitals" context).
+            - If yes: "Correct! {capital_name_for_context} is the capital of {user_answer_str}. (It's also the capital of: {correct_country_name})."
+            - If no: "Incorrect. {capital_name_for_context} is the capital of {correct_country_name}."
+        - **If Correct (and 1 total capital):**
+            - "Correct! {capital_name_for_context} is the capital of {correct_country_name}."
+        - **If Correct (and >1 total capital):**
+            - Identify the *other* capitals from the "Full List of Capitals".
+            - Format: "Correct! {capital_name_for_context} is one of the {capital_count} capitals of {correct_country_name}. The other capital cities are: [list of other capitals]."
+            - Example: "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are: Cape Town & Bloemfontein."
 
     **JSON Output Format:**
     {{
       "is_correct": true,
-      "feedback_message": "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are Cape Town & Bloemfontein."
+      "feedback_message": "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are: Cape Town & Bloemfontein."
     }}
 
     **CRITICAL: Respond ONLY with the raw JSON object.**
@@ -267,9 +272,9 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
                     logger.info(
                         f"AI missed shared capital. User guess '{user_answer_str}' is also correct for '{capital_name_for_context}'.")
                     result_json["is_correct"] = True
+                    # This feedback overrides the AI's "Incorrect"
                     other_countries = [
                         c for c in all_capitals_map[capital_lower] if c.lower() != user_country_lower]
-                    # This feedback overrides the AI's "Incorrect"
                     result_json[
                         "feedback_message"] = f"Correct! {capital_name_for_context} is the capital of {user_answer_str}. (It's also the capital of: {', '.join(other_countries)})"
 
@@ -307,7 +312,7 @@ def get_fun_fact(country_name):
         generation_config=generation_config,
     )
 
-    topics = "geography, travel, credit card points/miles, history, science, football (soccer), or Formula 1"
+    topics = "geography, travel, history, science, football (soccer), or Formula 1"
 
     prompt = f"""
     You are a trivia host. Give me one single, interesting "Did you know?" fun fact about {country_name}.
@@ -331,16 +336,24 @@ def get_fun_fact(country_name):
 
 def generate_ai_quiz(topic):
     """
-    Generates a new quiz (5 questions) based on a topic.
+    Generates a new quiz (5 questions) based on a topic,
+    including a fun fact for each answer.
     """
     if not api_key:
         return {"error": "AI features are currently disabled."}
 
+    # --- CACHE LOGIC (Stays the same) ---
+    cache_key = f"ai_quiz_{topic.replace(' ', '_').lower()}"
+    cached_quiz = cache.get(cache_key)
+    if cached_quiz:
+        logger.info(f"CACHE HIT: Returning cached AI quiz for {topic}")
+        return cached_quiz
+
+    logger.info(f"CACHE MISS: Calling Gemini for AI quiz on {topic}")
+    # --- END CACHE LOGIC ---
+
     generation_config = {
         "temperature": 0.5,
-        "top_p": 1,
-        "top_k": 1,
-        "max_output_tokens": 4096,
         "response_mime_type": "application/json",
     }
 
@@ -349,6 +362,7 @@ def generate_ai_quiz(topic):
         generation_config=generation_config,
     )
 
+    # --- UPDATED PROMPT ---
     prompt = f"""
     You are a trivia game API. Your task is to generate a list of 5 (five) multiple-choice trivia questions about {topic}.
     
@@ -358,6 +372,7 @@ def generate_ai_quiz(topic):
     - "question": The question string.
     - "options": A list of 4 (four) string options.
     - "correctAnswer": The string of the correct answer, which *must* match one of the options.
+    - "funFact": A "Did you know...?" fun fact (1-2 sentences) related to the 'correctAnswer'.
 
     **Example JSON format:**
     [
@@ -365,13 +380,15 @@ def generate_ai_quiz(topic):
         "id": 1,
         "question": "Which driver won the 2008 F1 World Championship?",
         "options": ["Fernando Alonso", "Lewis Hamilton", "Kimi Räikkönen", "Sebastian Vettel"],
-        "correctAnswer": "Lewis Hamilton"
+        "correctAnswer": "Lewis Hamilton",
+        "funFact": "Did you know? Lewis Hamilton won his first championship on the very last corner of the last lap of the season."
       }},
       {{
         "id": 2,
         "question": "Which team is based in Maranello, Italy?",
         "options": ["Mercedes", "Red Bull", "McLaren", "Ferrari"],
-        "correctAnswer": "Ferrari"
+        "correctAnswer": "Ferrari",
+        "funFact": "Did you know? Ferrari's headquarters in Maranello includes its own test track, the Pista di Fiorano."
       }}
     ]
 
@@ -383,10 +400,16 @@ def generate_ai_quiz(topic):
         response_text = response.text.strip()
         quiz_data = json.loads(response_text)
 
+        # --- UPDATED VALIDATION ---
         if not isinstance(quiz_data, list) or len(quiz_data) == 0:
             raise ValueError("AI did not return a list.")
-        if not all("question" in q and "options" in q and "correctAnswer" in q for q in quiz_data):
-            raise ValueError("AI returned malformed question objects.")
+        if not all("question" in q and "options" in q and "correctAnswer" in q and "funFact" in q for q in quiz_data):
+            raise ValueError(
+                "AI returned malformed question objects. Missing a key.")
+
+        # --- CACHE LOGIC (Stays the same) ---
+        # Cache the quiz for 30 mins
+        cache.set(cache_key, quiz_data, timeout=60*30)
 
         logger.info(f"AI Quiz generated for topic: {topic}")
         return quiz_data
