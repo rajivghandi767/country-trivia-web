@@ -27,4 +27,5 @@ export interface AIQuestion {
   question: string;
   options: string[];
   correctAnswer: string;
+  funFact?: string;
 }
