@@ -105,7 +105,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
             if other_countries:
                 shared_capitals_context[capital] = other_countries
 
-    # --- UPDATED PROMPT ---
+    # Prompt for grading Country Capital Answer
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a capital city question.
     You must provide your response *only* in the specified JSON format.
@@ -218,6 +218,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     capital_count = len(correct_capitals_list)
     capital_name_for_context = correct_capitals_list[0]
 
+    # Prompt for grading Country Answer
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a "guess the country" question.
     You must provide your response *only* in the specified JSON format.
@@ -313,7 +314,7 @@ def get_fun_fact(country_name):
         generation_config=generation_config,
     )
 
-    topics = "geography, travel, history, science, football (soccer), or Formula 1"
+    topics = "geography, travel, caribbean history, science, football (soccer), or Formula 1"
 
     prompt = f"""
     You are a trivia host. Give me one single, interesting "Did you know?" fun fact about {country_name}.
@@ -343,7 +344,7 @@ def generate_ai_quiz(topic, fresh=False):
     if not api_key:
         return {"error": "AI features are currently disabled."}
 
-    # --- CACHE LOGIC (Stays the same) ---
+    # --- CACHE LOGIC ---
 
     cache_key = f"ai_quiz_{topic.replace(' ', '_').lower()}"
 
@@ -357,7 +358,6 @@ def generate_ai_quiz(topic, fresh=False):
         return cached_quiz
 
     logger.info(f"CACHE MISS: Calling Gemini for AI quiz on {topic}")
-    # --- END CACHE LOGIC ---
 
     generation_config = {
         "temperature": 0.5,
@@ -369,7 +369,7 @@ def generate_ai_quiz(topic, fresh=False):
         generation_config=generation_config,
     )
 
-    # --- UPDATED PROMPT ---
+    # Prompt for generating AI quiz
     prompt = f"""
     You are a trivia game API. Your task is to generate a list of 5 (five) multiple-choice trivia questions about {topic}.
     
@@ -379,7 +379,7 @@ def generate_ai_quiz(topic, fresh=False):
     - "question": The question string.
     - "options": A list of 4 (four) string options.
     - "correctAnswer": The string of the correct answer, which *must* match one of the options.
-    - "funFact": A "Did you know...?" fun fact (1-2 sentences) related to the 'correctAnswer'.
+    - "funFact": A "Did you know" fun fact (1-2 sentences) related to the 'correctAnswer'.
 
     **Example JSON format:**
     [
@@ -407,14 +407,12 @@ def generate_ai_quiz(topic, fresh=False):
         response_text = response.text.strip()
         quiz_data = json.loads(response_text)
 
-        # --- UPDATED VALIDATION ---
         if not isinstance(quiz_data, list) or len(quiz_data) == 0:
             raise ValueError("AI did not return a list.")
         if not all("question" in q and "options" in q and "correctAnswer" in q and "funFact" in q for q in quiz_data):
             raise ValueError(
                 "AI returned malformed question objects. Missing a key.")
 
-        # --- CACHE LOGIC (Stays the same) ---
         # Cache the quiz for 30 mins
         cache.set(cache_key, quiz_data, timeout=60*30)
 

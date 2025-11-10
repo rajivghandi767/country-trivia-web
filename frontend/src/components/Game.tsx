@@ -38,14 +38,13 @@ const Game = () => {
   const [highScores, setHighScores] = useState({ capital: 0, country: 0 });
   const [funFact, setFunFact] = useState<string | null>(null); // For Feature 2
 
-  // New state to trigger AI quiz fetch
+  // AI Quiz Parameters State
   const [aiQuizParams, setAiQuizParams] = useState<{
     topic: string;
     fresh: boolean;
   } | null>(null);
 
-  // --- FIX for Bug #2 (Same Quiz Order) ---
-  // This state will be used to force the useApi hook to refetch
+  // Game ID to force refetching countries
   const [gameId, setGameId] = useState(0);
 
   // --- DATA STATES ---
@@ -104,7 +103,6 @@ const Game = () => {
     setAiQuizParams(null); // Clear AI quiz params
 
     if (mode === "capital" || mode === "country") {
-      // --- FIX for Bug #2 ---
       // Force a refetch of shuffled countries from the backend
       setGameId((id) => id + 1);
     }
@@ -155,9 +153,7 @@ const Game = () => {
       .replace(/[',.-]/g, "");
   };
 
-  // --- FIX for Bug #4 (AI Quiz Answers) ---
-  // We create a dedicated handler for AI quiz buttons
-  // This avoids the React state update timing issue.
+  // Handles answer selection for AI quiz mode
   const handleAiQuizAnswer = (
     option: string,
     activeGameData: GameQuestion[]
@@ -170,6 +166,8 @@ const Game = () => {
     const normalizedCorrectAnswer = normalizeAnswer(
       currentQuestion.correctAnswer
     );
+
+    setFunFact(currentQuestion.funFact || null);
 
     if (normalizedUserAnswer === normalizedCorrectAnswer) {
       setResult({ type: "correct", message: "Correct!" });
@@ -190,22 +188,21 @@ const Game = () => {
     e.preventDefault();
     if (isAnswered) return;
 
-    // --- FIX for Bug #3 (Empty Submit) ---
+    // Validate non-empty answer
     if (!userAnswer.trim()) {
       setResult({
         type: "incorrect",
         message: 'Please type an answer or click "I don\'t know!"',
       });
-      setIsAnswered(true); // Treat as answered to show 'Next' button
+      setIsAnswered(true);
       return;
     }
-    // --- End Fix ---
 
     setIsAnswered(true); // Set answered immediately
 
     // This must be a Country/Capital question
     const countryQuestion = activeGameData[currentIndex] as Country;
-    setFunFact("Loading fun fact..."); // For Feature 2
+    setFunFact("Loading fun fact...");
 
     try {
       // Run both API calls in parallel for speed
@@ -252,7 +249,6 @@ const Game = () => {
     }
   };
 
-  // --- FIX for Bug #1 (Fun Fact on Skip) ---
   const handleSkipQuestion = async (activeGameData: GameQuestion[]) => {
     if (isAnswered || gameMode === "ai-quiz" || !activeGameData.length) return;
     setIsAnswered(true);
@@ -274,7 +270,7 @@ const Game = () => {
 
     setResult({ type: "incorrect", message: resultMessage });
 
-    // --- Add API call ---
+    // Fetch fun fact
     try {
       const factResult = await apiService.trivia.getFunFact(currentQuestion.id);
       if (factResult.data) {
@@ -305,13 +301,11 @@ const Game = () => {
       }
     }
 
-    // --- FIX for Bug #1 (Persisting State) ---
     setIsAnswered(false);
     setResult({ type: null, message: null }); // Clears the feedback
     setUserAnswer("");
     setFunFact(null); // Clears the fun fact
     setCurrentIndex(nextIndex);
-    // --- End Fix ---
   };
 
   // --- RENDER FUNCTIONS ---
@@ -344,7 +338,7 @@ const Game = () => {
                 if (gameMode === "ai-quiz") {
                   startAiQuiz(aiQuizParams!.topic, true); // Request fresh questions
                 } else {
-                  startGame(gameMode); // This now triggers a refetch
+                  startGame(gameMode); // Triggers a refetch
                 }
               }}
             >
@@ -407,6 +401,11 @@ const Game = () => {
         <CardTitle as="h3" className="text-center mb-6 text-xl">
           {questionText}
         </CardTitle>
+        {gameMode === "ai-quiz" && (
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 -mt-4 mb-4">
+            Disclaimer: Answers to AI-generated questions may be inaccurate.
+          </p>
+        )}
         {/* Answer Form */}
         <form onSubmit={(e) => handleSubmit(e, activeGameData)}>
           {gameMode === "ai-quiz" && options && (
@@ -419,8 +418,6 @@ const Game = () => {
                   fullWidth
                   disabled={isAnswered}
                   onClick={() => {
-                    // --- FIX for Bug #4 ---
-                    // Pass option directly, don't use state
                     handleAiQuizAnswer(option, activeGameData);
                   }}
                 >
@@ -527,6 +524,12 @@ const Game = () => {
         >
           AI-Generated Quizzes
         </CardTitle>
+        <div>
+          {" "}
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400 -mt-4 -mb-2">
+            Disclaimer: Answers to AI-generated questions may be inaccurate
+          </p>
+        </div>
         <Button
           size="lg"
           variant="outline"
@@ -547,15 +550,19 @@ const Game = () => {
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("Credit Card Points and Miles")}
+          onClick={() =>
+            startAiQuiz(
+              "Caribbean History (Politics, CARICOM, OECS, Emblems, Mottos, Food, Current Prime Ministers & Presidents)"
+            )
+          }
         >
-          Travel Hacking Trivia ✈️
+          Caribbean History Trivia 🏖️
         </Button>
       </div>
     </CardContent>
   );
 
-  // This is a new wrapper component that lives *inside* the DataLoader
+  // --- GAME WRAPPER COMPONENT ---
   const GameWrapper = () => {
     // Render AI Quiz loader/error
     if (gameMode === "ai-quiz") {
@@ -588,7 +595,7 @@ const Game = () => {
           </Card>
         );
       }
-      // If we have AI gameData, render the interface
+
       return (
         <Card className="max-w-xl mx-auto shadow-xl">
           {renderGameInterface(gameData)}
@@ -618,7 +625,7 @@ const Game = () => {
         emptyMessage="Could not load trivia questions. Please try again later."
       >
         {() => (
-          // The wrapper now handles all other logic *after* countries are loaded.
+          // Render the Game Wrapper which handles all game modes
           <GameWrapper />
         )}
       </DataLoader>
