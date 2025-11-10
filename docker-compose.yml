@@ -50,6 +50,7 @@ services:
     command: >
       sh -c "python manage.py migrate --noinput && 
              python manage.py createcachetable &&
+             python manage.py load_country_data &&
              python manage.py collectstatic --noinput"
 
   # Trivia Backend - Django
