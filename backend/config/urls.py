@@ -1,11 +1,12 @@
 
 from django.contrib import admin
 from django.urls import path, include
-from rest_framework import routers, serializers, viewsets
-from trivia.views import CountryViewSet
+from rest_framework import routers
+from trivia.views import AIQuizViewSet, CountryViewSet
 
 router = routers.DefaultRouter()
 router.register('trivia', CountryViewSet, basename='trivia')
+router.register('ai-quiz', AIQuizViewSet, basename='ai-quiz')
 
 urlpatterns = [
     path('', include(router.urls)),
