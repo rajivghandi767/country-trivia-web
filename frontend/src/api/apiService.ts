@@ -76,8 +76,12 @@ const apiService = {
    * ADD THIS OBJECT for the AI Quiz
    */
   aiQuiz: {
-    generate: (topic: string): Promise<ApiResponse<AIQuestion[]>> => {
-      return fetchApi<AIQuestion[]>(`ai-quiz/generate/?topic=${encodeURIComponent(topic)}`);
+    generate: (topic: string, fresh: boolean = false): Promise<ApiResponse<AIQuestion[]>> => {
+      let endpoint = `ai-quiz/generate/?topic=${encodeURIComponent(topic)}`;
+      if (fresh) {
+        endpoint += "&fresh=true";
+      }
+      return fetchApi<AIQuestion[]>(endpoint);
     },
   },
 };

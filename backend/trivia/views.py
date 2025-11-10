@@ -98,9 +98,10 @@ class AIQuizViewSet(viewsets.ViewSet):
         e.g., /api/ai-quiz/generate/?topic=Formula 1
         """
         topic = request.query_params.get('topic', 'World Geography')
+        fresh = request.query_params.get('fresh', 'false').lower() == 'true'
 
         try:
-            quiz_data = ai_service.generate_ai_quiz(topic)
+            quiz_data = ai_service.generate_ai_quiz(topic, fresh=fresh)
             if "error" in quiz_data:
                 return Response(quiz_data, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
