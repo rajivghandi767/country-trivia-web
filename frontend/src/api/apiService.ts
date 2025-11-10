@@ -1,4 +1,4 @@
-import { ApiResponse, Country } from "@/types";
+import { ApiResponse, Country, AIAnswerResponse, AIQuestion } from "@/types";
 
 // Base URL for the API from environment variables, without a fallback.
 const API_URL = import.meta.env.VITE_API_URL + '/api/';
@@ -48,6 +48,36 @@ const apiService = {
   trivia: {
     getShuffledCountries: (): Promise<ApiResponse<Country[]>> => {
       return fetchApi<Country[]>('trivia/?shuffle=true');
+    },
+
+    checkAnswer: (
+      countryId: number,
+      userAnswer: string,
+      gameMode: GameMode
+    ): Promise<ApiResponse<AIAnswerResponse>> => {
+      return fetchApi<AIAnswerResponse>(`trivia/${countryId}/check-answer/`, {
+        method: "POST",
+        body: JSON.stringify({
+          user_answer: userAnswer,
+          game_mode: gameMode,
+        }),
+      });
+    },
+
+    /**
+     * Fun Fact
+     */
+    getFunFact: (countryId: number): Promise<ApiResponse<{ fact: string }>> => {
+      return fetchApi<{ fact: string }>(`trivia/${countryId}/fun-fact/`);
+    },
+  },
+  
+  /**
+   * ADD THIS OBJECT for the AI Quiz
+   */
+  aiQuiz: {
+    generate: (topic: string): Promise<ApiResponse<AIQuestion[]>> => {
+      return fetchApi<AIQuestion[]>(`ai-quiz/generate/?topic=${encodeURIComponent(topic)}`);
     },
   },
 };
