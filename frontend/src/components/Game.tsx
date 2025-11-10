@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Country, AIAnswerResponse, AIQuestion } from "@/types";
+import { Country, AIAnswerResponse, AIQuestion, GameMode } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
 import { cn } from "@/utils/styleUtils";
@@ -11,7 +11,6 @@ import DataLoader from "./common/DataLoader";
 import ResultDisplay from "./common/ResultDisplay";
 
 // --- GAME MODES & TYPES ---
-type GameMode = "capital" | "country" | "ai-quiz" | null;
 type ResultType = "correct" | "incorrect" | null;
 type GameQuestion = Country | AIQuestion; // Unified question type
 
