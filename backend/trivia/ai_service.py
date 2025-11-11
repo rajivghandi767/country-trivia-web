@@ -310,17 +310,9 @@ def get_fun_fact(country_name):
         "max_output_tokens": 200,
     }
 
-    safety_settings = {
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-    }
-
     model = genai.GenerativeModel(
         model_name=ACTIVE_MODEL_NAME,
         generation_config=generation_config,
-        safety_settings=safety_settings
     )
 
     topics = "geography, travel, caribbean history, science, football (soccer), or Formula 1"
