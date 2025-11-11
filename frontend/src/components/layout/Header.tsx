@@ -19,25 +19,23 @@ const ThemeToggleButton = () => {
 
 const Header = () => {
   return (
-    <div className="sticky top-0 z-50">
-      <div className=" border-gray-200 dark:border-gray-800">
-        <div className="container mx-auto px-4 py-3">
-          <div className="flex items-center justify-between">
-            {/* Left side: Theme Toggle */}
-            <div className="w-14">
-              <ThemeToggleButton />
-            </div>
-
-            {/* Center: Title */}
-            <div className="flex-1 text-center">
-              <h1 className="text-2xl font-bold">
-                <span>Country Trivia by Rajiv Wallace</span>
-              </h1>
-            </div>
-
-            {/* Right side: Spacer to keep title centered */}
-            <div className="w-14" />
+    <div className="sticky top-0 z-50 bg-[var(--background)] border-b border-gray-200 dark:border-gray-800">
+      <div className="container mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left side: Theme Toggle */}
+          <div className="w-14">
+            <ThemeToggleButton />
           </div>
+
+          {/* Center: Title */}
+          <div className="flex-1 text-center">
+            <h1 className="text-2xl font-bold">
+              <span>Country Trivia by Rajiv Wallace</span>
+            </h1>
+          </div>
+
+          {/* Right side: Spacer to keep title centered */}
+          <div className="w-14" />
         </div>
       </div>
     </div>
