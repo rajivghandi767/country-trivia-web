@@ -11,6 +11,11 @@ class Command(BaseCommand):
         # Path to the data file, assuming it's in a 'data' directory at the project root
         file_path = os.path.join('data', 'country_capitals.csv')
 
+        if Country.objects.exists():
+            self.stdout.write(self.style.SUCCESS(
+                'Country data already exists. Skipping load.'))
+            return
+
         Country.objects.all().delete()
         self.stdout.write(self.style.SUCCESS(
             'Successfully cleared existing country data.'))
