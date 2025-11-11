@@ -8,7 +8,6 @@ class Command(BaseCommand):
     help = 'Loads Country Data from a CSV file into the database'
 
     def handle(self, *args, **kwargs):
-        # Path to the data file, assuming it's in a 'data' directory at the project root
         file_path = os.path.join('data', 'country_capitals.csv')
 
         if Country.objects.exists():
