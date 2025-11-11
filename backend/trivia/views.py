@@ -39,10 +39,10 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         except Country.DoesNotExist:
             return Response({"error": "Country not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        user_answer = request.data.get('user_answer', '')
+        user_answer = request.data.get('user_answer', None)
         game_mode = request.data.get('game_mode', 'capital')  # Get game_mode
 
-        if not user_answer:
+        if user_answer is None:
             return Response({"error": "user_answer is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:

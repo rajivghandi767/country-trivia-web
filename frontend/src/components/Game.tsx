@@ -180,27 +180,13 @@ const Game = () => {
     }
   };
 
-  // Handles answer submission for standard modes
-  const handleSubmit = async (
-    e: React.FormEvent<HTMLFormElement>,
+  const processAnswer = async (
+    answerToSubmit: string,
     activeGameData: GameQuestion[]
   ) => {
-    e.preventDefault();
-    if (isAnswered) return;
+    if (isAnswered) return; // Prevent double-submission
+    setIsAnswered(true);
 
-    // Validate non-empty answer
-    if (!userAnswer.trim()) {
-      setResult({
-        type: "incorrect",
-        message: 'Please type an answer or click "I don\'t know!"',
-      });
-      setIsAnswered(true);
-      return;
-    }
-
-    setIsAnswered(true); // Set answered immediately
-
-    // This must be a Country/Capital question
     const countryQuestion = activeGameData[currentIndex] as Country;
     setFunFact("Loading fun fact...");
 
@@ -209,7 +195,7 @@ const Game = () => {
       const [answerResult, factResult] = await Promise.all([
         apiService.trivia.checkAnswer(
           countryQuestion.id,
-          userAnswer,
+          answerToSubmit, // Use the new parameter here
           gameMode!
         ),
         apiService.trivia.getFunFact(countryQuestion.id),
@@ -249,39 +235,29 @@ const Game = () => {
     }
   };
 
+  // Handles answer submission for standard modes
+  const handleSubmit = async (
+    e: React.FormEvent<HTMLFormElement>,
+    activeGameData: GameQuestion[]
+  ) => {
+    e.preventDefault();
+    if (isAnswered) return;
+
+    // Validate non-empty answer
+    if (!userAnswer.trim()) {
+      setResult({
+        type: "incorrect",
+        message: 'Please type an answer or click "I don\'t know!"',
+      });
+      return;
+    }
+
+    await processAnswer(userAnswer, activeGameData);
+  };
+
   const handleSkipQuestion = async (activeGameData: GameQuestion[]) => {
     if (isAnswered || gameMode === "ai-quiz" || !activeGameData.length) return;
-    setIsAnswered(true);
-    setFunFact("Loading fun fact..."); // Set loading state
-
-    const currentQuestion = activeGameData[currentIndex] as Country;
-    let correctAnswer: string;
-    let resultMessage: string;
-
-    if (gameMode === "capital") {
-      correctAnswer = currentQuestion.capital.replace(/\|/g, ", ");
-      resultMessage = `The capital(s) of ${currentQuestion.name} are: ${correctAnswer}.`;
-    } else {
-      correctAnswer = currentQuestion.name;
-      resultMessage = `${
-        currentQuestion.capital.split("|")[0]
-      } is the capital of ${correctAnswer}.`;
-    }
-
-    setResult({ type: "incorrect", message: resultMessage });
-
-    // Fetch fun fact
-    try {
-      const factResult = await apiService.trivia.getFunFact(currentQuestion.id);
-      if (factResult.data) {
-        setFunFact(factResult.data.fact);
-      } else {
-        setFunFact(null);
-      }
-    } catch (err) {
-      console.error("Failed to fetch fun fact:", err);
-      setFunFact(null);
-    }
+    await processAnswer("", activeGameData);
   };
 
   // Move to the next question
@@ -379,20 +355,24 @@ const Game = () => {
 
     return (
       <CardContent>
-        {/* Score and Question Counter */}
+        {/* Back to Main Menu Button */}
+        <div className="flex justify-center mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            className="bg-white text-black border-black hover:bg-gray-200 dark:bg-white dark:text-black dark:border-black dark:hover:bg-gray-200"
+            onClick={() => {
+              setGameMode(null);
+              setGameId((id) => id + 1); // Refetch countries for next time
+            }}
+          >
+            Back to Main Menu
+          </Button>
+        </div>
+        {/* Score and Progress */}
         <div className="flex justify-between items-center mb-4 text-sm text-gray-300">
           <span className="font-semibold">Score: {score}</span>
           <span>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                setGameMode(null);
-                setGameId((id) => id + 1); // Refetch countries for next time
-              }}
-            >
-              Back to Game Modes
-            </Button>{" "}
             Question: {currentIndex + 1} / {activeGameData.length}
           </span>
         </div>
