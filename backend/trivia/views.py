@@ -26,7 +26,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
             # Convert queryset to a list to shuffle
             country_list = list(queryset)
             random.shuffle(country_list)
-            return country_list
+            return country_list[:20]
         return queryset
 
     @action(detail=True, methods=['post'], url_path='check-answer')

@@ -92,6 +92,7 @@ const Game = () => {
 
   // Resets game to a specific mode
   const startGame = (mode: GameMode) => {
+    setGameData([]);
     setGameMode(mode);
     setCurrentIndex(0);
     setScore(0);
@@ -344,7 +345,7 @@ const Game = () => {
               Play Again
             </Button>
             <Button
-              variant="outline"
+              variant="secondary"
               fullWidth
               onClick={() => {
                 setGameMode(null);
@@ -383,7 +384,7 @@ const Game = () => {
           <span className="font-semibold">Score: {score}</span>
           <span>
             <Button
-              variant="link"
+              variant="outline"
               size="sm"
               onClick={() => {
                 setGameMode(null);
@@ -391,8 +392,8 @@ const Game = () => {
               }}
             >
               Back to Game Modes
-            </Button>
-            | Question: {currentIndex + 1} / {activeGameData.length}
+            </Button>{" "}
+            Question: {currentIndex + 1} / {activeGameData.length}
           </span>
         </div>
 
@@ -533,17 +534,17 @@ const Game = () => {
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("Formula 1")}
+          onClick={() => startAiQuiz("Formula 1", true)}
         >
-          F1 Trivia 🏎️
+          F1 🏎️
         </Button>
         <Button
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("World Football (Soccer)")}
+          onClick={() => startAiQuiz("English Premier League", true)}
         >
-          Football Trivia ⚽
+          English Premier League ⚽
         </Button>
         <Button
           size="lg"
@@ -551,11 +552,12 @@ const Game = () => {
           fullWidth
           onClick={() =>
             startAiQuiz(
-              "Caribbean History (Politics, CARICOM, OECS, Emblems, Mottos, Food, Current Prime Ministers & Presidents)"
+              "Caribbean History (Politics, CARICOM, OECS, National Emblems, Country Mottos, Food, Past & Current Heads of State (Prime Ministers & Presidents), Languages, Historical Figures, Independence Days)",
+              true
             )
           }
         >
-          Caribbean History Trivia 🏖️
+          Caribbean History 🏖️
         </Button>
       </div>
     </CardContent>

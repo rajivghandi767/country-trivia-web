@@ -1,3 +1,4 @@
+from datetime import datetime
 import os
 import google.generativeai as genai
 from google.generativeai.types import HarmCategory, HarmBlockThreshold
@@ -360,6 +361,11 @@ def generate_ai_quiz(topic, fresh=False):
 
     logger.info(f"CACHE MISS: Calling Gemini for AI quiz on {topic}")
 
+    # --- DYNAMIC DATE ---
+    # Get the actual current date
+    today = datetime.today()
+    current_date_str = today.strftime("%B %d, %Y")
+
     generation_config = {
         "temperature": 0.5,
         "response_mime_type": "application/json",
@@ -372,8 +378,16 @@ def generate_ai_quiz(topic, fresh=False):
 
     # Prompt for generating AI quiz
     prompt = f"""
-    You are a trivia game API. Your task is to generate a list of 5 (five) multiple-choice trivia questions about {topic}.
-    
+    You are a trivia game API. Your task is to generate a list of 10 (ten) multiple-choice trivia questions about {topic}.
+
+    **CRITICAL Guiding Principles:**
+    1.  **Currentness & Accuracy:** All questions and answers MUST be factually correct and verifiable. For sports (Formula 1, English Premier League), questions must be current as of **{current_date_str}**. If a season or event for {today.year} is not yet complete (as of {current_date_str}), you MUST use the most recently *completed* season's data.
+    2.  **Single Correct Answer:** Each question MUST have **only one** indisputably correct answer from the provided options. The `correctAnswer` key must contain only that single answer. Do *not* create questions where multiple options could be argued as correct.
+    3.  **Unambiguous Options:** All options must be clear and specific. Avoid ambiguity. For example, if a correct answer is "Dominica," do not include "Dominican Republic" as a distractor unless the question is *specifically* about differentiating the two.
+    4.  **Topic Scope:** For broad topics like "Caribbean History (Politics, National Emblems, Culture, OECS, Caricom, Prime Ministers, Presidents, National Anthems, systems of government)", you must generate 10 questions that provide a good *mix* from these sub-topics, not just 10 questions on one subject. The answer should also be current as of **{current_date_str}**.
+    5.  **Diversity & Creativity:** Ensure a diverse range of question types and formats to keep the quiz engaging. Avoid repetitive patterns in question structure.
+
+    **JSON Output Format:**
     You must provide your response *only* in the specified JSON format: A single JSON list `[...]`.
     Each object in the list must have *exactly* these keys:
     - "id": A unique integer (e.g., 1, 2, 3...).
@@ -389,7 +403,7 @@ def generate_ai_quiz(topic, fresh=False):
         "question": "Which driver won the 2008 F1 World Championship?",
         "options": ["Fernando Alonso", "Lewis Hamilton", "Kimi Räikkönen", "Sebastian Vettel"],
         "correctAnswer": "Lewis Hamilton",
-        "funFact": "Did you know? Lewis Hamilton won his first championship on the very last corner of the last lap of the season."
+        "funFact": "Did you know that Lewis Hamilton won his first championship on the very last corner of the last lap of the season."
       }},
       {{
         "id": 2,
@@ -414,8 +428,8 @@ def generate_ai_quiz(topic, fresh=False):
             raise ValueError(
                 "AI returned malformed question objects. Missing a key.")
 
-        # Cache the quiz for 30 mins
-        cache.set(cache_key, quiz_data, timeout=60*30)
+        # Cache the quiz for 5 mins
+        cache.set(cache_key, quiz_data, timeout=60*5)
 
         logger.info(f"AI Quiz generated for topic: {topic}")
         return quiz_data
