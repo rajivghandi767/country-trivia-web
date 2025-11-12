@@ -1,5 +1,5 @@
 # Use official Node.js image to build the frontend
-FROM node:24-alpine AS build
+FROM node:25-alpine AS build
 
 RUN addgroup -S frontend_group && adduser -S frontend -G frontend_group && \
     mkdir -p /home/frontend/react && chown -R frontend:frontend_group /home/frontend/react
