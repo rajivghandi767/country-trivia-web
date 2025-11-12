@@ -93,7 +93,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.FileHandler',
-            'filename': '/home/backend/django/logs/portfolio.log',
+            'filename': '/home/backend/django/logs/trivia.log',
             'formatter': 'simple',
         },
         'error_file': {
@@ -123,29 +123,9 @@ LOGGING = {
             'level': 'ERROR',
             'propagate': False,
         },
-        'info': {
+        'trivia': {
             'handlers': ['file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'projects': {
-            'handlers': ['file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'blog': {
-            'handlers': ['file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'wallet': {
-            'handlers': ['file', 'error_file'],
-            'level': 'DEBUG',
-            'propagate': False,
-        },
-        'contacts': {
-            'handlers': ['file', 'error_file'],
-            'level': 'DEBUG',
+            'level': 'INFO',
             'propagate': False,
         },
     },
@@ -158,10 +138,6 @@ REST_FRAMEWORK.update({
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
-    'DEFAULT_THROTTLE_RATES': {
-        'contact': '20/hour',
-    },
-
     'DEFAULT_PAGINATION_CLASS': None,
 })
 
