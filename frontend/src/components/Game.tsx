@@ -226,7 +226,9 @@ const Game = () => {
         setFunFact(null);
       }
     } catch (err) {
-      console.error("Failed to check answer or get fun fact:", err);
+      if (import.meta.env.DEV) {
+        console.error("Failed to check answer or get fun fact:", err);
+      }
       setResult({
         type: "incorrect",
         message: "Error grading answer. Please try again.",
@@ -598,11 +600,11 @@ const Game = () => {
   // --- MAIN COMPONENT RETURN ---
   return (
     <Section id="game">
-      {/* This DataLoader now *only* worries about the initial country load. */}
+      {/* This DataLoader *only* worries about the initial country load. */}
       <DataLoader<Country>
         isLoading={isLoadingCountries}
         error={countriesError}
-        data={countries} // This is the fix for the "Could not load..." error
+        data={countries}
         emptyMessage="Could not load trivia questions. Please try again later."
       >
         {() => (

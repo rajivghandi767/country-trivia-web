@@ -11,7 +11,9 @@ const API_URL = import.meta.env.VITE_API_URL + '/api/';
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   if (!import.meta.env.VITE_API_URL) {
     const errorMessage = "API URL is not configured. Please set VITE_API_URL in your environment file.";
-    console.error(errorMessage);
+    if (import.meta.env.DEV) {
+      console.error(errorMessage);
+    }
     return { data: null, error: errorMessage, status: 0 };
   }
 
@@ -27,7 +29,9 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`API Error: ${response.status} - ${errorText}`);
+      if (import.meta.env.DEV) {
+        console.error(`API Error: ${response.status} - ${errorText}`);
+      }
       return { data: null, error: `Failed to fetch: ${response.statusText}`, status: response.status };
     }
 
@@ -36,7 +40,9 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "A network error occurred.";
-    console.error("Network or parsing error:", errorMessage);
+    if (import.meta.env.DEV) {
+      console.error("Network or parsing error:", errorMessage);
+    }
     return { data: null, error: errorMessage, status: 0 };
   }
 }
