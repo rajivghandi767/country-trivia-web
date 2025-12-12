@@ -8,6 +8,8 @@ router = routers.DefaultRouter()
 router.register('trivia', CountryViewSet, basename='trivia')
 router.register('ai-quiz', AIQuizViewSet, basename='ai-quiz')
 
+path('', include('django_prometheus.urls')),
+
 urlpatterns = [
     path('', include(router.urls)),
     path('admin/', admin.site.urls),
