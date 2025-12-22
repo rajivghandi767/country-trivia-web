@@ -1,37 +1,4 @@
 services:
-  # PostgreSQL Database for Trivia Backend
-  trivia-db:
-    image: postgres:18-alpine
-    container_name: trivia-db
-    restart: unless-stopped
-    networks:
-      - trivia
-      - database
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      LC_ALL: "en_US.utf8"
-      POSTGRES_INITDB_ARGS: "--locale=en_US.utf8"
-    volumes:
-      - trivia_db_data:/var/lib/postgresql/data
-      - trivia_backups:/backups
-    healthcheck:
-      test:
-        [
-          "CMD",
-          "pg_isready",
-          "-q",
-          "-d",
-          "${POSTGRES_DB}",
-          "-U",
-          "${POSTGRES_USER}",
-        ]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
   # DB Migration & Static Files Collection
   trivia-backend-init:
     build:
@@ -41,6 +8,7 @@ services:
     user: root
     networks:
       - trivia
+      - database
     env_file: .env
     volumes:
       - trivia_static:/home/backend/django/staticfiles
@@ -48,7 +16,14 @@ services:
       trivia-db:
         condition: service_healthy
     command: >
-      sh -c "python manage.py migrate --noinput && 
+      sh -c "
+        echo 'Waiting for postgres-core...' &&
+        until python -c 'import socket,os; s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(2); s.connect((os.environ[\"POSTGRES_HOST\"], 5432)); s.close()'; do
+          echo 'Database not ready... waiting 2s';
+          sleep 2;
+        done &&
+        echo 'Database is ready!' &&
+        python manage.py migrate --noinput && 
              python manage.py createcachetable &&
              python manage.py load_country_data &&
              python manage.py collectstatic --noinput"
@@ -62,9 +37,8 @@ services:
     restart: unless-stopped
     networks:
       - trivia
+      - database
     depends_on:
-      trivia-db:
-        condition: service_healthy
       trivia-backend-init:
         condition: service_completed_successfully
     env_file: .env
@@ -127,12 +101,6 @@ services:
       retries: 3
 
 volumes:
-  trivia_backups:
-    name: trivia_backups
-
-  trivia_db_data:
-    name: trivia_db_data
-
   trivia_static:
     name: trivia_static
 
