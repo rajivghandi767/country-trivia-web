@@ -12,9 +12,6 @@ services:
     env_file: .env
     volumes:
       - trivia_static:/home/backend/django/staticfiles
-    depends_on:
-      trivia-db:
-        condition: service_healthy
     command: >
       sh -c "
         echo 'Waiting for postgres-core...' &&
