@@ -37,17 +37,17 @@ pipeline {
                         // 2. Generate .env file LOCALLY in the Jenkins workspace
                         // 'writeFile' does not print content to logs, preventing leakage.
                         def envContent = """
-                            DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
-                            ALLOWED_HOSTS=${ALLOWED_HOSTS}
-                            CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
-                            POSTGRES_HOST=${POSTGRES_HOST}
-                            POSTGRES_PORT=${POSTGRES_PORT}
-                            POSTGRES_USER=${POSTGRES_USER}
-                            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-                            POSTGRES_DB=${POSTGRES_DB}
-                            ADMIN_URL=${ADMIN_URL}
-                            GEMINI_API_KEY=${GEMINI_API_KEY}
-                            GEMINI_PROD_MODEL=${GEMINI_PROD_MODEL}
+                            DJANGO_SECRET_KEY='${DJANGO_SECRET_KEY}'
+                            ALLOWED_HOSTS='${ALLOWED_HOSTS}'
+                            CSRF_TRUSTED_ORIGINS='${CSRF_TRUSTED_ORIGINS}'
+                            POSTGRES_HOST='${POSTGRES_HOST}'
+                            POSTGRES_PORT='${POSTGRES_PORT}'
+                            POSTGRES_USER='${POSTGRES_USER}'
+                            POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
+                            POSTGRES_DB='${POSTGRES_DB}'
+                            ADMIN_URL='${ADMIN_URL}'
+                            GEMINI_API_KEY='${GEMINI_API_KEY}'
+                            GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
                         """.stripIndent()
                         // Save as a temp file
                         writeFile file: '.env.prod', text: envContent
