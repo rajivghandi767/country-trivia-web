@@ -9,7 +9,7 @@ pipeline {
         
         DEPLOY_USER = "dietpi"
         DEPLOY_HOST = "10.100.10.5"
-        DEPLOY_DIR  = "/opt/homelab/services/apps/country-trivia-web"
+        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/trivia-website"
     }
 
     stages {
@@ -17,8 +17,9 @@ pipeline {
             steps {
                 checkout scm
 
+                // 1. Fetch Secrets from Vault
                 withVault(configuration: [vaultUrl: "${VAULT_ADDR}", vaultCredentialId: "${VAULT_CRED_ID}", engineVersion: 2], 
-                vaultSecrets: [[path: 'secret/data/trivia-prod', secretValues: [
+                vaultSecrets: [[path: 'secret/trivia-prod', secretValues: [
                     [envVar: 'DJANGO_SECRET_KEY', vaultKey: 'DJANGO_SECRET_KEY'],
                     [envVar: 'ALLOWED_HOSTS', vaultKey: 'ALLOWED_HOSTS'],
                     [envVar: 'CSRF_TRUSTED_ORIGINS', vaultKey: 'CSRF_TRUSTED_ORIGINS'],
@@ -31,38 +32,67 @@ pipeline {
                     [envVar: 'GEMINI_PROD_MODEL', vaultKey: 'GEMINI_PROD_MODEL'],
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
                 ]]]) {
-                    sshagent([SSH_CRED_ID]) {
-                        sh """
+                    
+                    script {
+                        // 2. Generate .env file LOCALLY in the Jenkins workspace
+                        // 'writeFile' does not print content to logs, preventing leakage.
+                        def envContent = """
+                            DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}
+                            ALLOWED_HOSTS=${ALLOWED_HOSTS}
+                            CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}
+                            POSTGRES_HOST=${POSTGRES_HOST}
+                            POSTGRES_PORT=${POSTGRES_PORT}
+                            POSTGRES_USER=${POSTGRES_USER}
+                            POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+                            POSTGRES_DB=${POSTGRES_DB}
+                            ADMIN_URL=${ADMIN_URL}
+                            GEMINI_API_KEY=${GEMINI_API_KEY}
+                            GEMINI_PROD_MODEL=${GEMINI_PROD_MODEL}
+                        """.stripIndent()
+                        // Save as a temp file
+                        writeFile file: '.env.prod', text: envContent
 
-                            # 1. Sync docker-compose.yml
-                            echo "Syncing docker-compose.yml to Host..."
-                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "cat > ${DEPLOY_DIR}/docker-compose.yml" < docker-compose.yml
+                        sshagent([SSH_CRED_ID]) {
+                            // 3. Pre-flight Security: Add Host to Known Hosts
+                            // This enables StrictHostKeyChecking to work without prompts
+                            sh """
+                                mkdir -p ~/.ssh
+                                ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true
+                            """
 
-                            # 2. Update .env file and deploy to production
-                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '
-                                cd ${DEPLOY_DIR}
+                            // 4. Transfer files securely (SCP)
+                            // We use scp to copy the local .env.prod to the remote .env
+                            // Note: StrictHostKeyChecking is now implicitly active (default)
+                            sh """
+                                echo "📦 Syncing files to ${DEPLOY_HOST}..."
                                 
-                                echo "Refreshing .env file from Vault..."
-                                echo "DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}" > .env
-                                echo "ALLOWED_HOSTS=${ALLOWED_HOSTS}" >> .env
-                                echo "CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}" >> .env
-                                echo "POSTGRES_HOST=${POSTGRES_HOST}" >> .env
-                                echo "POSTGRES_PORT=${POSTGRES_PORT}" >> .env
-                                echo "POSTGRES_USER=${POSTGRES_USER}" >> .env
-                                echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
-                                echo "POSTGRES_DB=${POSTGRES_DB}" >> .env
-                                echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> .env
-                                echo "GEMINI_PROD_MODEL=${GEMINI_PROD_MODEL}" >> .env
-                                echo "ADMIN_URL=${ADMIN_URL}" >> .env
+                                # Copy docker-compose
+                                scp docker-compose.yml ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/docker-compose.yml
                                 
-                                chmod 600 .env
+                                # Copy the secret env file
+                                scp .env.prod ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/.env
+                            """
 
-                                echo "Deploying Latest Changes of Portfolio Website to Production..."
-                                docker compose pull
-                                docker compose up -d --remove-orphans
-                                docker image prune -f
-                            '
-                        """
+                            // 5. Remote Execution
+                            sh """
+                                ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                    cd ${DEPLOY_DIR}
+                                    
+                                    # Lock down the secrets file immediately
+                                    chmod 600 .env
+
+                                    echo "🚀 Deploying Trvivia App..."
+                                    docker compose pull
+                                    docker compose up -d --remove-orphans
+                                    docker image prune -f
+                                '
+                            """
+                        }
+                        
+                        // 6. Cleanup Local Secrets
+                        // We delete the file from the Jenkins Agent (Workspace), 
+                        // but it remains safely on the Production Server.
+                        sh "rm .env.prod"
                     }
                 }
             }
