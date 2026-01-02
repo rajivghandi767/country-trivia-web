@@ -100,10 +100,8 @@ services:
 volumes:
   trivia_static:
     name: trivia_static
-
   trivia_media:
     name: trivia_media
-
   trivia_logs:
     name: trivia_logs
 
