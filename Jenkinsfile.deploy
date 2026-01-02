@@ -1,0 +1,71 @@
+pipeline {
+    agent any
+
+    environment {
+        // --- CONFIGURATION ---
+        SSH_CRED_ID      = "raspberry-pi-ssh"
+        VAULT_CRED_ID    = "vault-trivia-approle"
+        VAULT_ADDR       = 'http://vault:8200'
+        
+        DEPLOY_USER = "dietpi"
+        DEPLOY_HOST = "10.100.10.5"
+        DEPLOY_DIR  = "/opt/homelab/services/apps/country-trivia-web"
+    }
+
+    stages {
+        stage('Deploy Configuration') {
+            steps {
+                checkout scm
+
+                withVault(configuration: [vaultUrl: "${VAULT_ADDR}", vaultCredentialId: "${VAULT_CRED_ID}", engineVersion: 2], 
+                vaultSecrets: [[path: 'secret/data/trivia-prod', secretValues: [
+                    [envVar: 'DJANGO_SECRET_KEY', vaultKey: 'DJANGO_SECRET_KEY'],
+                    [envVar: 'ALLOWED_HOSTS', vaultKey: 'ALLOWED_HOSTS'],
+                    [envVar: 'CSRF_TRUSTED_ORIGINS', vaultKey: 'CSRF_TRUSTED_ORIGINS'],
+                    [envVar: 'POSTGRES_HOST', vaultKey: 'POSTGRES_HOST'],
+                    [envVar: 'POSTGRES_PORT', vaultKey: 'POSTGRES_PORT'],
+                    [envVar: 'POSTGRES_USER', vaultKey: 'POSTGRES_USER'],
+                    [envVar: 'POSTGRES_PASSWORD', vaultKey: 'POSTGRES_PASSWORD'],
+                    [envVar: 'POSTGRES_DB', vaultKey: 'POSTGRES_DB'],
+                    [envVar: 'GEMINI_API_KEY', vaultKey: 'GEMINI_API_KEY'],
+                    [envVar: 'GEMINI_PROD_MODEL', vaultKey: 'GEMINI_PROD_MODEL'],
+                    [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
+                ]]]) {
+                    sshagent([SSH_CRED_ID]) {
+                        sh """
+
+                            # 1. Sync docker-compose.yml
+                            echo "Syncing docker-compose.yml to Host..."
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} "cat > ${DEPLOY_DIR}/docker-compose.yml" < docker-compose.yml
+
+                            # 2. Update .env file and deploy to production
+                            ssh -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                cd ${DEPLOY_DIR}
+                                
+                                echo "Refreshing .env file from Vault..."
+                                echo "DJANGO_SECRET_KEY=${DJANGO_SECRET_KEY}" > .env
+                                echo "ALLOWED_HOSTS=${ALLOWED_HOSTS}" >> .env
+                                echo "CSRF_TRUSTED_ORIGINS=${CSRF_TRUSTED_ORIGINS}" >> .env
+                                echo "POSTGRES_HOST=${POSTGRES_HOST}" >> .env
+                                echo "POSTGRES_PORT=${POSTGRES_PORT}" >> .env
+                                echo "POSTGRES_USER=${POSTGRES_USER}" >> .env
+                                echo "POSTGRES_PASSWORD=${POSTGRES_PASSWORD}" >> .env
+                                echo "POSTGRES_DB=${POSTGRES_DB}" >> .env
+                                echo "GEMINI_API_KEY=${GEMINI_API_KEY}" >> .env
+                                echo "GEMINI_PROD_MODEL=${GEMINI_PROD_MODEL}" >> .env
+                                echo "ADMIN_URL=${ADMIN_URL}" >> .env
+                                
+                                chmod 600 .env
+
+                                echo "Deploying Latest Changes of Portfolio Website to Production..."
+                                docker compose pull
+                                docker compose up -d --remove-orphans
+                                docker image prune -f
+                            '
+                        """
+                    }
+                }
+            }
+        }
+    }
+}
