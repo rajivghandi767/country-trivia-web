@@ -81,7 +81,7 @@ pipeline {
                                     # Lock down the secrets file immediately
                                     chmod 600 .env
 
-                                    echo "🚀 Deploying Trvivia App..."
+                                    echo "🚀 Deploying Trivia App..."
                                     docker compose pull
                                     docker compose up -d --remove-orphans
                                     docker image prune -f
