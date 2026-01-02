@@ -1,9 +1,7 @@
 services:
   # DB Migration & Static Files Collection
   trivia-backend-init:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/rajivghandi767/trivia-backend:latest
     container_name: trivia-backend-init
     user: root
     networks:
@@ -27,9 +25,7 @@ services:
 
   # Trivia Backend - Django
   trivia-backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.prod
+    image: ghcr.io/rajivghandi767/trivia-backend:latest
     container_name: trivia-backend
     restart: unless-stopped
     networks:
@@ -52,12 +48,7 @@ services:
       start_period: 60s
 
   trivia-frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile.prod
-      args:
-        - NODE_ENV=production
-        - VITE_API_URL=${VITE_API_URL}
+    image: ghcr.io/rajivghandi767/trivia-frontend:latest
     container_name: trivia-frontend
     restart: unless-stopped
     networks:
@@ -74,9 +65,7 @@ services:
 
   # Single unified nginx service
   trivia-nginx:
-    build:
-      context: ./nginx
-      dockerfile: Dockerfile
+    image: ghcr.io/rajivghandi767/trivia-nginx:latest
     container_name: trivia-nginx
     restart: unless-stopped
     networks:
