@@ -9,7 +9,7 @@ pipeline {
         
         DEPLOY_USER = "dietpi"
         DEPLOY_HOST = "10.100.10.5"
-        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/trivia-website"
+        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/country-trivia-web"
     }
 
     stages {
