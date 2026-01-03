@@ -1,6 +1,16 @@
 pipeline {
     agent any
 
+    // 1. Scheduled Trigger (0400Hrs Daily)
+    triggers {
+        cron('0 4 * * *')
+    }
+
+    // 2. Rollback Parameter
+    parameters {
+        string(name: 'TAG_TO_DEPLOY', defaultValue: 'latest', description: 'Tag to deploy (e.g. "latest" or build number "45")')
+    }
+
     environment {
         // --- CONFIGURATION ---
         SSH_CRED_ID      = "raspberry-pi-ssh"
@@ -11,6 +21,15 @@ pipeline {
         DEPLOY_USER = "dietpi"
         DEPLOY_HOST = "10.100.10.5"
         DEPLOY_DIR  = "/opt/homelab-iac/services/apps/country-trivia-web"
+
+        // Image names for notifications
+        IMAGE_BACKEND  = "rajivghandi767/trivia-backend"
+        IMAGE_FRONTEND = "rajivghandi767/trivia-frontend"
+        IMAGE_NGINX    = "rajivghandi767/trivia-nginx"
+
+        // --- NOTIFICATIONS ---
+        // Separate webhook for Jenkins status (Stored in Jenkins Credentials)
+        JENKINS_DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
     }
 
     stages {
@@ -18,7 +37,7 @@ pipeline {
             steps {
                 checkout scm
 
-                // 1. Fetch Secrets from Vault
+                // A. Fetch App Secrets from Vault
                 withVault(configuration: [vaultUrl: "${VAULT_ADDR}", vaultCredentialId: "${VAULT_CRED_ID}", engineVersion: 2], 
                 vaultSecrets: [[path: 'secret/trivia-prod', secretValues: [
                     [envVar: 'DJANGO_SECRET_KEY', vaultKey: 'DJANGO_SECRET_KEY'],
@@ -34,12 +53,12 @@ pipeline {
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
                 ]]]) {
                     
-                    // 2. Fetch Registry Credentials for the Deploy Step
+                    // B. Fetch Registry Credentials
                     withCredentials([usernamePassword(credentialsId: REGISTRY_CRED_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
                         script {
-                            // 3. Generate .env file LOCALLY in the Jenkins workspace
-                            // 'writeFile' does not print content to logs, preventing leakage.
+                            // C. Generate .env file LOCALLY
                             def envContent = """
+                                IMAGE_TAG='${params.TAG_TO_DEPLOY}'
                                 DJANGO_SECRET_KEY='${DJANGO_SECRET_KEY}'
                                 ALLOWED_HOSTS='${ALLOWED_HOSTS}'
                                 CSRF_TRUSTED_ORIGINS='${CSRF_TRUSTED_ORIGINS}'
@@ -53,60 +72,113 @@ pipeline {
                                 GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
                             """.stripIndent()
 
-                            // Save as a temp file
                             writeFile file: '.env.prod', text: envContent
 
                             sshagent([SSH_CRED_ID]) {
-                                // 4. Pre-flight Security: Add Host to Known Hosts
-                                // This enables StrictHostKeyChecking to work without prompts
+                                // D. Pre-flight Security
                                 sh """
                                     mkdir -p ~/.ssh
                                     ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true
                                 """
 
-                                // 5. Transfer files securely (SCP)
-                                // We use scp to copy the local .env.prod to the remote .env
-                                // Note: StrictHostKeyChecking is now implicitly active (default)
+                                // E. Transfer files
                                 sh """
                                     echo "📦 Syncing files to ${DEPLOY_HOST}..."
-                                    
-                                    # Copy docker-compose
                                     scp docker-compose.yml ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/docker-compose.yml
-                                    
-                                    # Copy the secret env file
                                     scp .env.prod ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/.env
                                 """
 
-                                // 6. Remote Execution
-                                // STEP A: Secure Login to Container Registry
+                                // F. Remote Execution
+
+                                // STEP A: Secure Login
                                 sh "echo \$REGISTRY_PASS | ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker login ghcr.io -u ${REGISTRY_USER} --password-stdin'"
 
-                                // STEP B: Deploy Application
-                                sh """
+                                // STEP B: Check for Updates
+                                def isManualDeploy = params.TAG_TO_DEPLOY != 'latest'
+                                
+                                def pullOutput = sh(script: """
                                     ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
                                         cd ${DEPLOY_DIR}
-                                        
-                                        # Lock down the secrets file immediately
-                                        chmod 600 .env
-
-                                        echo "🚀 Deploying Trivia App..."
-                                        docker compose pull
-                                        docker compose up -d --remove-orphans
-                                        docker image prune -f
-                                        
-                                        # Logout from the registry
-                                        docker logout ghcr.io
+                                        IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose pull 2>&1
                                     '
-                                """
+                                """, returnStdout: true).trim()
+                                
+                                echo "🔍 Pull Status: \n${pullOutput}"
+
+                                // STEP C: Conditional Deploy
+                                if (isManualDeploy || pullOutput.contains("Downloaded") || pullOutput.contains("Pulled")) {
+                                    echo "🚀 Changes detected or Manual Rollback. Deploying..."
+                                    
+                                    sh """
+                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                            cd ${DEPLOY_DIR}
+                                            chmod 600 .env
+                                            
+                                            IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose up -d --remove-orphans
+                                            docker image prune -f
+                                        '
+                                    """
+                                    currentBuild.result = 'SUCCESS'
+                                    env.DEPLOY_STATUS = "UPDATED"
+                                } else {
+                                    echo "💤 No new images found. Skipping deploy."
+                                    currentBuild.result = 'SUCCESS'
+                                    env.DEPLOY_STATUS = "SKIPPED"
+                                }
+                                
+                                // STEP D: Always Logout
+                                sh "ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker logout ghcr.io'"
+                                
+                                // G. Cleanup Local Secrets
+                                sh "rm .env.prod"
                             }
-                            
-                            // 7. Cleanup Local Secrets
-                            // We delete the file from the Jenkins Agent (Workspace), 
-                            // but it remains safely on the Production Server.
-                            sh "rm .env.prod"
                         }
                     }
                 }
+            }
+        }
+    }
+
+    // 3. Discord Notifications
+    post {
+        success {
+            script {
+                if (env.DEPLOY_STATUS == "UPDATED") {
+                    def deployMessage = """
+:unicorn: **Trivia Update Deployed**
+**:new: New Version Live:**
+• **Tag:** ${params.TAG_TO_DEPLOY}
+• **Backend:** ${IMAGE_BACKEND}
+• **Frontend:** ${IMAGE_FRONTEND}
+• **Nginx:** ${IMAGE_NGINX}
+
+:bar_chart: **Status:** Healthy
+:clock4: **Time:** ${java.time.LocalDateTime.now()}
+"""
+                    discordSend description: deployMessage, result: currentBuild.currentResult, title: "🚀 Deployment Successful", webhookURL: env.JENKINS_DISCORD_WEBHOOK, color: '#00ff00'
+                } 
+                else if (env.DEPLOY_STATUS == "SKIPPED") {
+                    def skipMessage = """
+:shield: **Trivia Up to Date**
+No new Docker images found for tag: **${params.TAG_TO_DEPLOY}**.
+Running services remain unchanged.
+
+:clock4: **Time:** ${java.time.LocalDateTime.now()}
+"""
+                    discordSend description: skipMessage, result: currentBuild.currentResult, title: "✅ Check Complete: No Changes", webhookURL: env.JENKINS_DISCORD_WEBHOOK, color: '#3498db'
+                }
+            }
+        }
+        failure {
+            script {
+                def failMessage = """
+:x: **Trivia Deployment Failed**
+**:warning: Error Details:**
+Check Jenkins logs for build #${BUILD_NUMBER}.
+
+:wrench: **Action Required:** Manual intervention needed.
+"""
+                discordSend description: failMessage, result: currentBuild.currentResult, title: "🚨 Deployment Alert", webhookURL: env.JENKINS_DISCORD_WEBHOOK, color: '#ff0000'
             }
         }
     }
