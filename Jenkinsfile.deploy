@@ -4,13 +4,13 @@ pipeline {
     environment {
         // --- CONFIGURATION ---
         SSH_CRED_ID      = "raspberry-pi-ssh"
-        VAULT_CRED_ID    = "vault-portfolio-approle"
+        VAULT_CRED_ID    = "vault-trivia-approle"
         REGISTRY_CRED_ID = "github-packages-pat"
         VAULT_ADDR       = 'http://vault:8200'
         
         DEPLOY_USER = "dietpi"
         DEPLOY_HOST = "10.100.10.5"
-        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/portfolio-website"
+        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/country-trivia-web"
     }
 
     stages {
@@ -20,7 +20,7 @@ pipeline {
 
                 // 1. Fetch Secrets from Vault
                 withVault(configuration: [vaultUrl: "${VAULT_ADDR}", vaultCredentialId: "${VAULT_CRED_ID}", engineVersion: 2], 
-                vaultSecrets: [[path: 'secret/portfolio-prod', secretValues: [
+                vaultSecrets: [[path: 'secret/trivia-prod', secretValues: [
                     [envVar: 'DJANGO_SECRET_KEY', vaultKey: 'DJANGO_SECRET_KEY'],
                     [envVar: 'ALLOWED_HOSTS', vaultKey: 'ALLOWED_HOSTS'],
                     [envVar: 'CSRF_TRUSTED_ORIGINS', vaultKey: 'CSRF_TRUSTED_ORIGINS'],
@@ -29,8 +29,9 @@ pipeline {
                     [envVar: 'POSTGRES_USER', vaultKey: 'POSTGRES_USER'],
                     [envVar: 'POSTGRES_PASSWORD', vaultKey: 'POSTGRES_PASSWORD'],
                     [envVar: 'POSTGRES_DB', vaultKey: 'POSTGRES_DB'],
+                    [envVar: 'GEMINI_API_KEY', vaultKey: 'GEMINI_API_KEY'],
+                    [envVar: 'GEMINI_PROD_MODEL', vaultKey: 'GEMINI_PROD_MODEL'],
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
-                    [envVar: 'DISCORD_WEBHOOK_URL', vaultKey: 'DISCORD_WEBHOOK_URL'],
                 ]]]) {
                     
                     // 2. Fetch Registry Credentials for the Deploy Step
@@ -48,9 +49,9 @@ pipeline {
                                 POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
                                 POSTGRES_DB='${POSTGRES_DB}'
                                 ADMIN_URL='${ADMIN_URL}'
-                                DISCORD_WEBHOOK_URL='${DISCORD_WEBHOOK_URL}'
+                                GEMINI_API_KEY='${GEMINI_API_KEY}'
+                                GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
                             """.stripIndent()
-                            
                             // Save as a temp file
                             writeFile file: '.env.prod', text: envContent
 
@@ -86,7 +87,7 @@ pipeline {
                                         # Login to GitHub Container Registry
                                         echo "${REGISTRY_PASS}" | docker login ghcr.io -u "${REGISTRY_USER}" --password-stdin
 
-                                        echo "🚀 Deploying Portfolio Website..."
+                                        echo "🚀 Deploying Trivia App..."
                                         docker compose pull
                                         docker compose up -d --remove-orphans
                                         docker image prune -f
