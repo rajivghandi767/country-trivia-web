@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    // 1. Scheduled Trigger (0400Hrs Daily)
+    // 1. Scheduled Trigger (4 AM Daily)
     triggers {
         cron('0 4 * * *')
     }
@@ -143,10 +143,10 @@ pipeline {
     post {
         success {
             script {
-                // Scenario 1: Update Deployed (Green)
+                // Scenario 1: Update Deployed
                 if (env.DEPLOY_STATUS == "UPDATED") {
                     def deployMessage = """
-:unicorn: **Trivia App Deployed**
+:unicorn: **Trivia App Update Deployed**
 **:new: New Version Live:**
 • **Tag:** ${params.TAG_TO_DEPLOY}
 • **Backend:** ${IMAGE_BACKEND}
@@ -156,12 +156,9 @@ pipeline {
 :bar_chart: **Status:** Healthy
 :clock4: **Time:** ${java.time.LocalDateTime.now()}
 """
-                    discordSend description: deployMessage, 
-                                result: 'SUCCESS', 
-                                title: "🚀 Deployment Successful", 
-                                webhookURL: env.JENKINS_DISCORD_WEBHOOK
+                    discordSend description: deployMessage, result: 'SUCCESS', title: "🚀 Deployment Successful", webhookURL: env.JENKINS_DISCORD_WEBHOOK
                 } 
-                
+                // Scenario 2: No Changes
                 else if (env.DEPLOY_STATUS == "SKIPPED") {
                     def skipMessage = """
 :shield: **Trivia App Up to Date**
@@ -170,10 +167,7 @@ Running services remain unchanged.
 
 :clock4: **Time:** ${java.time.LocalDateTime.now()}
 """
-                    discordSend description: skipMessage, 
-                                result: 'SUCCESS', 
-                                title: "✅ Check Complete: No Changes", 
-                                webhookURL: env.JENKINS_DISCORD_WEBHOOK
+                    discordSend description: skipMessage, result: 'SUCCESS', title: "✅ Check Complete: No Changes", webhookURL: env.JENKINS_DISCORD_WEBHOOK
                 }
             }
         }
@@ -186,10 +180,8 @@ Check Jenkins logs for build #${BUILD_NUMBER}.
 
 :wrench: **Action Required:** Manual intervention needed.
 """
-                discordSend description: failMessage, 
-                            result: 'FAILURE', 
-                            title: "🚨 Critical Deployment Alert",
-                            webhookURL: env.JENKINS_DISCORD_WEBHOOK
+                discordSend description: failMessage, result: 'FAILURE', title: "🚨 Deployment Alert", webhookURL: env.JENKINS_DISCORD_WEBHOOK
             }
         }
     }
+}
