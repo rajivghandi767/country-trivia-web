@@ -52,6 +52,7 @@ pipeline {
                                 GEMINI_API_KEY='${GEMINI_API_KEY}'
                                 GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
                             """.stripIndent()
+
                             // Save as a temp file
                             writeFile file: '.env.prod', text: envContent
 
@@ -77,15 +78,16 @@ pipeline {
                                 """
 
                                 // 6. Remote Execution
+                                // STEP A: Secure Login to Container Registry
+                                sh "echo \$REGISTRY_PASS | ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker login ghcr.io -u ${REGISTRY_USER} --password-stdin'"
+
+                                // STEP B: Deploy Application
                                 sh """
                                     ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
                                         cd ${DEPLOY_DIR}
                                         
                                         # Lock down the secrets file immediately
                                         chmod 600 .env
-
-                                        # Login to GitHub Container Registry
-                                        echo "${REGISTRY_PASS}" | docker login ghcr.io -u "${REGISTRY_USER}" --password-stdin
 
                                         echo "🚀 Deploying Trivia App..."
                                         docker compose pull
