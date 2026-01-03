@@ -143,10 +143,14 @@ pipeline {
     post {
         success {
             script {
+                // Time Formatting (New York Time, 24h format)
+                def now = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))
+                def timestamp = now.format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM yyyy 'at' HH:mm z"))
+
                 // Scenario 1: Update Deployed
                 if (env.DEPLOY_STATUS == "UPDATED") {
                     def deployMessage = """
-:unicorn: **Trivia App Update Deployed**
+:unicorn: **Trivia Web App Deployed**
 **:new: New Version Live:**
 • **Tag:** ${params.TAG_TO_DEPLOY}
 • **Backend:** ${IMAGE_BACKEND}
@@ -154,18 +158,18 @@ pipeline {
 • **Nginx:** ${IMAGE_NGINX}
 
 :bar_chart: **Status:** Healthy
-:clock4: **Time:** ${java.time.LocalDateTime.now()}
+:clock4: **Time:** ${timestamp}
 """
                     discordSend description: deployMessage, result: 'SUCCESS', title: "🚀 Deployment Successful", webhookURL: env.JENKINS_DISCORD_WEBHOOK
                 } 
                 // Scenario 2: No Changes
                 else if (env.DEPLOY_STATUS == "SKIPPED") {
                     def skipMessage = """
-:shield: **Trivia App Up to Date**
+:shield: **Trivia Web App Up to Date**
 No new Docker images found for tag: **${params.TAG_TO_DEPLOY}**.
 Running services remain unchanged.
 
-:clock4: **Time:** ${java.time.LocalDateTime.now()}
+:clock4: **Time:** ${timestamp}
 """
                     discordSend description: skipMessage, result: 'SUCCESS', title: "✅ Check Complete: No Changes", webhookURL: env.JENKINS_DISCORD_WEBHOOK
                 }
@@ -173,12 +177,18 @@ Running services remain unchanged.
         }
         failure {
             script {
+                // Failure Timestamp
+                def failTime = java.time.ZonedDateTime.now(java.time.ZoneId.of("America/New_York"))
+                                      .format(java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM yyyy 'at' HH:mm z"))
+
                 def failMessage = """
-:x: **Trivia App Deployment Failed**
+:x: **Trivia Web App Deployment Failed**
 **:warning: Error Details:**
 Check Jenkins logs for build #${BUILD_NUMBER}.
 
 :wrench: **Action Required:** Manual intervention needed.
+
+:clock4: **Time:** ${failTime}
 """
                 discordSend description: failMessage, result: 'FAILURE', title: "🚨 Deployment Alert", webhookURL: env.JENKINS_DISCORD_WEBHOOK
             }
