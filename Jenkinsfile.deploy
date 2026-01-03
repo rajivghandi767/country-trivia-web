@@ -5,6 +5,7 @@ pipeline {
         // --- CONFIGURATION ---
         SSH_CRED_ID      = "raspberry-pi-ssh"
         VAULT_CRED_ID    = "vault-trivia-approle"
+        REGISTRY_CRED_ID = "github-packages-pat"
         VAULT_ADDR       = 'http://vault:8200'
         
         DEPLOY_USER = "dietpi"
@@ -33,66 +34,75 @@ pipeline {
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
                 ]]]) {
                     
-                    script {
-                        // 2. Generate .env file LOCALLY in the Jenkins workspace
-                        // 'writeFile' does not print content to logs, preventing leakage.
-                        def envContent = """
-                            DJANGO_SECRET_KEY='${DJANGO_SECRET_KEY}'
-                            ALLOWED_HOSTS='${ALLOWED_HOSTS}'
-                            CSRF_TRUSTED_ORIGINS='${CSRF_TRUSTED_ORIGINS}'
-                            POSTGRES_HOST='${POSTGRES_HOST}'
-                            POSTGRES_PORT='${POSTGRES_PORT}'
-                            POSTGRES_USER='${POSTGRES_USER}'
-                            POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
-                            POSTGRES_DB='${POSTGRES_DB}'
-                            ADMIN_URL='${ADMIN_URL}'
-                            GEMINI_API_KEY='${GEMINI_API_KEY}'
-                            GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
-                        """.stripIndent()
-                        // Save as a temp file
-                        writeFile file: '.env.prod', text: envContent
+                    // 2. Fetch Registry Credentials for the Deploy Step
+                    withCredentials([usernamePassword(credentialsId: REGISTRY_CRED_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
+                        script {
+                            // 3. Generate .env file LOCALLY in the Jenkins workspace
+                            // 'writeFile' does not print content to logs, preventing leakage.
+                            def envContent = """
+                                DJANGO_SECRET_KEY='${DJANGO_SECRET_KEY}'
+                                ALLOWED_HOSTS='${ALLOWED_HOSTS}'
+                                CSRF_TRUSTED_ORIGINS='${CSRF_TRUSTED_ORIGINS}'
+                                POSTGRES_HOST='${POSTGRES_HOST}'
+                                POSTGRES_PORT='${POSTGRES_PORT}'
+                                POSTGRES_USER='${POSTGRES_USER}'
+                                POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'
+                                POSTGRES_DB='${POSTGRES_DB}'
+                                ADMIN_URL='${ADMIN_URL}'
+                                GEMINI_API_KEY='${GEMINI_API_KEY}'
+                                GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
+                            """.stripIndent()
+                            // Save as a temp file
+                            writeFile file: '.env.prod', text: envContent
 
-                        sshagent([SSH_CRED_ID]) {
-                            // 3. Pre-flight Security: Add Host to Known Hosts
-                            // This enables StrictHostKeyChecking to work without prompts
-                            sh """
-                                mkdir -p ~/.ssh
-                                ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true
-                            """
+                            sshagent([SSH_CRED_ID]) {
+                                // 4. Pre-flight Security: Add Host to Known Hosts
+                                // This enables StrictHostKeyChecking to work without prompts
+                                sh """
+                                    mkdir -p ~/.ssh
+                                    ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true
+                                """
 
-                            // 4. Transfer files securely (SCP)
-                            // We use scp to copy the local .env.prod to the remote .env
-                            // Note: StrictHostKeyChecking is now implicitly active (default)
-                            sh """
-                                echo "📦 Syncing files to ${DEPLOY_HOST}..."
-                                
-                                # Copy docker-compose
-                                scp docker-compose.yml ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/docker-compose.yml
-                                
-                                # Copy the secret env file
-                                scp .env.prod ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/.env
-                            """
-
-                            // 5. Remote Execution
-                            sh """
-                                ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
-                                    cd ${DEPLOY_DIR}
+                                // 5. Transfer files securely (SCP)
+                                // We use scp to copy the local .env.prod to the remote .env
+                                // Note: StrictHostKeyChecking is now implicitly active (default)
+                                sh """
+                                    echo "📦 Syncing files to ${DEPLOY_HOST}..."
                                     
-                                    # Lock down the secrets file immediately
-                                    chmod 600 .env
+                                    # Copy docker-compose
+                                    scp docker-compose.yml ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/docker-compose.yml
+                                    
+                                    # Copy the secret env file
+                                    scp .env.prod ${DEPLOY_USER}@${DEPLOY_HOST}:${DEPLOY_DIR}/.env
+                                """
 
-                                    echo "🚀 Deploying Trivia App..."
-                                    docker compose pull
-                                    docker compose up -d --remove-orphans
-                                    docker image prune -f
-                                '
-                            """
+                                // 6. Remote Execution
+                                sh """
+                                    ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                        cd ${DEPLOY_DIR}
+                                        
+                                        # Lock down the secrets file immediately
+                                        chmod 600 .env
+
+                                        # Login to GitHub Container Registry
+                                        echo "${REGISTRY_PASS}" | docker login ghcr.io -u "${REGISTRY_USER}" --password-stdin
+
+                                        echo "🚀 Deploying Trivia App..."
+                                        docker compose pull
+                                        docker compose up -d --remove-orphans
+                                        docker image prune -f
+                                        
+                                        # Logout from the registry
+                                        docker logout ghcr.io
+                                    '
+                                """
+                            }
+                            
+                            // 7. Cleanup Local Secrets
+                            // We delete the file from the Jenkins Agent (Workspace), 
+                            // but it remains safely on the Production Server.
+                            sh "rm .env.prod"
                         }
-                        
-                        // 6. Cleanup Local Secrets
-                        // We delete the file from the Jenkins Agent (Workspace), 
-                        // but it remains safely on the Production Server.
-                        sh "rm .env.prod"
                     }
                 }
             }
