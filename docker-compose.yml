@@ -1,7 +1,7 @@
 services:
   # DB Migration & Static Files Collection
   trivia-backend-init:
-    image: ghcr.io/rajivghandi767/trivia-backend:latest
+    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
     container_name: trivia-backend-init
     user: root
     networks:
@@ -25,7 +25,7 @@ services:
 
   # Trivia Backend - Django
   trivia-backend:
-    image: ghcr.io/rajivghandi767/trivia-backend:latest
+    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
     container_name: trivia-backend
     restart: unless-stopped
     networks:
@@ -48,7 +48,7 @@ services:
       start_period: 60s
 
   trivia-frontend:
-    image: ghcr.io/rajivghandi767/trivia-frontend:latest
+    image: ghcr.io/rajivghandi767/trivia-frontend:${IMAGE_TAG:-latest}
     container_name: trivia-frontend
     restart: unless-stopped
     networks:
@@ -65,7 +65,7 @@ services:
 
   # Single unified nginx service
   trivia-nginx:
-    image: ghcr.io/rajivghandi767/trivia-nginx:latest
+    image: ghcr.io/rajivghandi767/trivia-nginx:${IMAGE_TAG:-latest}
     container_name: trivia-nginx
     restart: unless-stopped
     networks:
