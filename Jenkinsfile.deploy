@@ -8,7 +8,7 @@ pipeline {
 
     // 2. Rollback Parameter
     parameters {
-        string(name: 'Image Version to Manually Deploy', defaultValue: 'latest', description: 'e.g. "latest" or build number "45")')
+        string(name: 'TAG_TO_DEPLOY', defaultValue: 'latest', description: 'Image Version to Manually Deploy (e.g. "latest" or build number "45")')
     }
 
     environment {
