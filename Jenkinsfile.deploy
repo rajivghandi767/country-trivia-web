@@ -28,11 +28,66 @@ pipeline {
         IMAGE_NGINX    = "rajivghandi767/trivia-nginx"
 
         // --- NOTIFICATIONS ---
-        // Separate webhook for Jenkins status (Stored in Jenkins Credentials)
         JENKINS_DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
     }
 
     stages {
+        // --- STAGE 1: CHECK VAULT STATUS ---
+        stage('🔍 Check Status') {
+            steps {
+                script {
+                    echo "Checking Vault Seal Status..."
+                    def statusJson = sh(script: "curl -s ${VAULT_ADDR}/v1/sys/seal-status || wget -qO- ${VAULT_ADDR}/v1/sys/seal-status", returnStdout: true).trim()
+                    
+                    if (statusJson.contains('"sealed":false')) {
+                        echo "✅ Vault is ALREADY UNSEALED. No action required."
+                        env.VAULT_STATUS = "OPEN" 
+                    } else {
+                        echo "🔒 Vault is SEALED. Initiating unseal sequence..."
+                        env.VAULT_STATUS = "SEALED"
+                    }
+                }
+            }
+        }
+
+        // --- STAGE 2: INJECT KEYS (ONLY IF SEALED) ---
+        stage('🗝️ Inject Keys') {
+            when {
+                environment name: 'VAULT_STATUS', value: 'SEALED'
+            }
+            steps {
+                withCredentials([
+                    string(credentialsId: 'VAULT_UNSEAL_KEY_1', variable: 'KEY1'),
+                    string(credentialsId: 'VAULT_UNSEAL_KEY_2', variable: 'KEY2'),
+                    string(credentialsId: 'VAULT_UNSEAL_KEY_3', variable: 'KEY3')
+                ]) {
+                    script {
+                        for (int i = 1; i <= 3; i++) {
+                            echo "🚀 Injecting Key #${i}..."
+                            def currentKeyVar = "\$KEY${i}"
+                            
+                            def output = sh(script: """
+                                if command -v curl >/dev/null 2>&1; then
+                                    curl -s -X POST -H "Content-Type: application/json" -d "{\\"key\\": \\"${currentKeyVar}\\"}" ${VAULT_ADDR}/v1/sys/unseal
+                                else
+                                    wget -qO- --post-data "{\\"key\\": \\"${currentKeyVar}\\"}" --header="Content-Type: application/json" ${VAULT_ADDR}/v1/sys/unseal
+                                fi
+                            """, returnStdout: true).trim()
+                            
+                            if (output.contains('"sealed":false')) {
+                                echo "🎉 SUCCESS: Vault has been UNSEALED!"
+                                return
+                            } else {
+                                echo "⚠️ Key accepted. Still sealed. Waiting for next key..."
+                            }
+                        }
+                        error("⛔ All keys used but Vault is still sealed.")
+                    }
+                }
+            }
+        }
+
+        // --- DEPLOY STAGE ---
         stage('Deploy Configuration') {
             steps {
                 checkout scm
@@ -53,7 +108,6 @@ pipeline {
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
                 ]]]) {
                     
-                    // B. Fetch Registry Credentials
                     withCredentials([usernamePassword(credentialsId: REGISTRY_CRED_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
                         script {
                             // C. Generate .env file LOCALLY
@@ -89,7 +143,7 @@ pipeline {
                                 """
 
                                 // F. Remote Execution
-
+                                
                                 // STEP A: Secure Login
                                 sh "echo \$REGISTRY_PASS | ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker login ghcr.io -u ${REGISTRY_USER} --password-stdin'"
 
@@ -143,10 +197,8 @@ pipeline {
     post {
         success {
             script {
-                // Get timestamp via shell (Sandbox Safe)
                 def timestamp = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
 
-                // Scenario 1: Update Deployed
                 if (env.DEPLOY_STATUS == "UPDATED") {
                     def deployMessage = """
 :unicorn: **Trivia Web App Update Deployed**
@@ -161,7 +213,6 @@ pipeline {
 """
                     discordSend description: deployMessage, result: 'SUCCESS', title: "🚀 Deployment Successful", webhookURL: env.JENKINS_DISCORD_WEBHOOK
                 } 
-                // Scenario 2: No Changes
                 else if (env.DEPLOY_STATUS == "SKIPPED") {
                     def skipMessage = """
 :shield: **Trivia Web App Up to Date**
@@ -176,14 +227,11 @@ Running services remain unchanged.
         }
         failure {
             script {
-                // Failure Timestamp
                 def failTime = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
-
                 def failMessage = """
-:x: **Trivia Web AppDeployment Failed**
+:x: **Trivia Web App Deployment Failed**
 **:warning: Error Details:**
 Check Jenkins logs for build #${BUILD_NUMBER}.
-
 :wrench: **Action Required:** Manual intervention needed.
 
 :clock4: **Time:** ${failTime}
