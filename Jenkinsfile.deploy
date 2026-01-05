@@ -148,7 +148,7 @@ pipeline {
                                 // STEP A: Secure Login
                                 sh "echo \$REGISTRY_PASS | ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker login ghcr.io -u ${REGISTRY_USER} --password-stdin'"
 
-                                // STEP B: Check for Updates (Smart Check)
+                                // STEP B: Check for Updates
                                 def isManualDeploy = params.TAG_TO_DEPLOY != 'latest'
                                 def localCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                                 
@@ -158,7 +158,7 @@ pipeline {
                                         cd ${DEPLOY_DIR}
                                         CID=\$(docker compose ps -q backend 2>/dev/null)
                                         if [ ! -z "\$CID" ]; then
-                                            docker inspect --format "{{ index .Config.Labels "git-commit" }}" \$CID
+                                            docker inspect --format '{{ index .Config.Labels "git-commit" }}' \$CID
                                         fi
                                     '
                                 """, returnStdout: true).trim()
@@ -174,7 +174,6 @@ pipeline {
                                     shouldDeploy = false
                                 } else {
                                     echo "🚀 Code Change detected. Pulling images..."
-                                    // Only pull if we know the commits are different
                                     def pullOutput = sh(script: """
                                         ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
                                             cd ${DEPLOY_DIR}
