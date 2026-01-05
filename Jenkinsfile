@@ -43,7 +43,7 @@ pipeline {
             }
             steps {
                 // SECURITY NOTE: 
-                // In a strict enterprise environment, unseal keys should NEVER be stored in CI/CD variables.
+                // In a strict enterprise environment, unseal keys would NEVER be stored in CI/CD variables.
                 // This automated unseal is implemented for Homelab resilience only.
                 withCredentials([
                     string(credentialsId: 'VAULT_UNSEAL_KEY_1', variable: 'KEY1'),
@@ -123,30 +123,33 @@ pipeline {
                 ]]]) {
                     withCredentials([usernamePassword(credentialsId: REGISTRY_CRED_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
                         script {
-                            // 1. Secure Login: Echo password to stdin to avoid logging it
+                            // 1. Secure Login
                             sh 'echo $REGISTRY_PASS | docker login ghcr.io -u $REGISTRY_USER --password-stdin'
                             
+                            // 2. Capture Git Commit for Labelling
+                            def gitCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
+                            
                             try {
-                                // 2. Run Builds in Parallel
+                                // 3. Run Builds in Parallel
                                 parallel(
                                     "Backend": {
-                                        def img = docker.build("${REGISTRY}/${IMAGE_BACKEND}:${BUILD_NUMBER}", "-f backend/Dockerfile.prod ./backend")
+                                        def img = docker.build("${REGISTRY}/${IMAGE_BACKEND}:${BUILD_NUMBER}", "--label git-commit=${gitCommit} -f backend/Dockerfile.prod ./backend")
                                         img.push()
                                         img.push("latest")
                                     },
                                     "Frontend": {
-                                        def img = docker.build("${REGISTRY}/${IMAGE_FRONTEND}:${BUILD_NUMBER}", "-f frontend/Dockerfile.prod --build-arg VITE_API_URL=${VITE_API_URL} ./frontend")
+                                        def img = docker.build("${REGISTRY}/${IMAGE_FRONTEND}:${BUILD_NUMBER}", "--label git-commit=${gitCommit} -f frontend/Dockerfile.prod --build-arg VITE_API_URL=${VITE_API_URL} ./frontend")
                                         img.push()
                                         img.push("latest")
                                     },
                                     "Nginx": {
-                                        def img = docker.build("${REGISTRY}/${IMAGE_NGINX}:${BUILD_NUMBER}", "./nginx")
+                                        def img = docker.build("${REGISTRY}/${IMAGE_NGINX}:${BUILD_NUMBER}", "--label git-commit=${gitCommit} ./nginx")
                                         img.push()
                                         img.push("latest")
                                     }
                                 )
                             } finally {
-                                // 3. Always Logout (Even if build fails)
+                                // 4. Always Logout
                                 sh 'docker logout ghcr.io'
                             }
                         }
