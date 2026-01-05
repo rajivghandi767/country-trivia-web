@@ -1,9 +1,9 @@
 pipeline {
     agent any
 
-    // 1. Scheduled Trigger (0400hrs Daily)
+    // 1. Scheduled Trigger (0245hrs ET Daily)
     triggers {
-        cron('0 4 * * *')
+        cron('TZ=America/New_York 45 2 * * *')
     }
 
     // 2. Rollback Parameter
@@ -147,27 +147,50 @@ pipeline {
                                 // STEP A: Secure Login
                                 sh "echo \$REGISTRY_PASS | ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'docker login ghcr.io -u ${REGISTRY_USER} --password-stdin'"
 
-                                // STEP B: Check for Updates
+                                // STEP B: Check for Updates (Smart Check)
                                 def isManualDeploy = params.TAG_TO_DEPLOY != 'latest'
+                                def localCommit = sh(returnStdout: true, script: 'git rev-parse --short HEAD').trim()
                                 
-                                def pullOutput = sh(script: """
+                                // Get Remote Running Commit
+                                def remoteCommit = sh(script: """
                                     ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
                                         cd ${DEPLOY_DIR}
-                                        IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose pull 2>&1
+                                        CID=\$(docker compose ps -q backend 2>/dev/null)
+                                        if [ ! -z "\$CID" ]; then
+                                            docker inspect --format "{{ index .Config.Labels \\"git-commit\\" }}" \$CID
+                                        fi
                                     '
                                 """, returnStdout: true).trim()
+
+                                echo "🔎 Version Check: Local [${localCommit}] vs Remote [${remoteCommit}]"
                                 
-                                echo "🔍 Pull Status: \n${pullOutput}"
+                                def shouldDeploy = false
+                                if (isManualDeploy) {
+                                    echo "⚠️ Manual Deployment requested."
+                                    shouldDeploy = true
+                                } else if (localCommit == remoteCommit) {
+                                    echo "✅ Code hashes match. Skipping unnecessary pull/deploy."
+                                    shouldDeploy = false
+                                } else {
+                                    echo "🚀 Code Change detected. Pulling images..."
+                                    // Only pull if we know the commits are different
+                                    def pullOutput = sh(script: """
+                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                            cd ${DEPLOY_DIR}
+                                            IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose pull 2>&1
+                                        '
+                                    """, returnStdout: true).trim()
+                                    echo "🔍 Pull Status: \n${pullOutput}"
+                                    shouldDeploy = true
+                                }
 
                                 // STEP C: Conditional Deploy
-                                if (isManualDeploy || pullOutput.contains("Downloaded") || pullOutput.contains("Pulled")) {
-                                    echo "🚀 Changes detected or Manual Rollback. Deploying..."
-                                    
+                                if (shouldDeploy) {
+                                    echo "🚀 Deploying..."
                                     sh """
                                         ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
                                             cd ${DEPLOY_DIR}
                                             chmod 600 .env
-                                            
                                             IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose up -d --remove-orphans
                                             docker image prune -f
                                         '
@@ -175,7 +198,7 @@ pipeline {
                                     currentBuild.result = 'SUCCESS'
                                     env.DEPLOY_STATUS = "UPDATED"
                                 } else {
-                                    echo "💤 No new images found. Skipping deploy."
+                                    echo "💤 No changes found. Skipping deploy."
                                     currentBuild.result = 'SUCCESS'
                                     env.DEPLOY_STATUS = "SKIPPED"
                                 }
@@ -216,7 +239,7 @@ pipeline {
                 else if (env.DEPLOY_STATUS == "SKIPPED") {
                     def skipMessage = """
 :shield: **Trivia Web App Up to Date**
-No new Docker images found for tag: **${params.TAG_TO_DEPLOY}**.
+No new code changes found for tag: **${params.TAG_TO_DEPLOY}**.
 Running services remain unchanged.
 
 :clock4: **Time:** ${timestamp}
