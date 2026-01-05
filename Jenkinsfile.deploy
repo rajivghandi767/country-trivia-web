@@ -1,9 +1,10 @@
 pipeline {
     agent any
 
-    // 1. Scheduled Trigger (0245hrs ET Daily)
+    // 1. Scheduled Trigger (02:45 AM ET Daily)
     triggers {
-        cron('TZ=America/New_York 45 2 * * *')
+        cron('''TZ=America/New_York
+45 2 * * *''')
     }
 
     // 2. Rollback Parameter
@@ -157,7 +158,7 @@ pipeline {
                                         cd ${DEPLOY_DIR}
                                         CID=\$(docker compose ps -q backend 2>/dev/null)
                                         if [ ! -z "\$CID" ]; then
-                                            docker inspect --format "{{ index .Config.Labels \\"git-commit\\" }}" \$CID
+                                            docker inspect --format "{{ index .Config.Labels "git-commit" }}" \$CID
                                         fi
                                     '
                                 """, returnStdout: true).trim()
