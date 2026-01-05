@@ -154,13 +154,13 @@ pipeline {
                                 
                                 // Get Remote Running Commit
                                 def remoteCommit = sh(script: """
-                                    ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                    ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
                                         cd ${DEPLOY_DIR}
-                                        CID=\$(docker compose ps -q backend 2>/dev/null)
-                                        if [ ! -z "\$CID" ]; then
-                                            docker inspect --format '{{ index .Config.Labels "git-commit" }}' \$CID
+                                        CID=\\\$(docker compose ps -q backend 2>/dev/null)
+                                        if [ ! -z \\\"\\\$CID\\\" ]; then
+                                            docker inspect --format '{{ index .Config.Labels \\"git-commit\\" }}' \\\$CID
                                         fi
-                                    '
+                                    "
                                 """, returnStdout: true).trim()
 
                                 echo "🔎 Version Check: Local [${localCommit}] vs Remote [${remoteCommit}]"
@@ -175,10 +175,10 @@ pipeline {
                                 } else {
                                     echo "🚀 Code Change detected. Pulling images..."
                                     def pullOutput = sh(script: """
-                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
                                             cd ${DEPLOY_DIR}
                                             IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose pull 2>&1
-                                        '
+                                        "
                                     """, returnStdout: true).trim()
                                     echo "🔍 Pull Status: \n${pullOutput}"
                                     shouldDeploy = true
@@ -188,12 +188,12 @@ pipeline {
                                 if (shouldDeploy) {
                                     echo "🚀 Deploying..."
                                     sh """
-                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} '
+                                        ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
                                             cd ${DEPLOY_DIR}
                                             chmod 600 .env
                                             IMAGE_TAG=${params.TAG_TO_DEPLOY} docker compose up -d --remove-orphans
                                             docker image prune -f
-                                        '
+                                        "
                                     """
                                     currentBuild.result = 'SUCCESS'
                                     env.DEPLOY_STATUS = "UPDATED"
