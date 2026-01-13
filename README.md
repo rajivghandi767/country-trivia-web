@@ -11,11 +11,10 @@ A full-stack, AI-enhanced web application that tests your knowledge of world geo
 - [📖 About The Project](#-about-the-project)
 - [✨ Features](#-features)
 - [🔧 Tech Stack](#-tech-stack)
-- [🚀 Getting Started](#-getting-started)
+- [🚀 Deployment & Infrastructure](#-deployment--infrastructure)
+- [💻 Local Replication](#-local-replication)
 - [🎮 How to Play](#-how-to-play)
-- [🚢 Deployment & Infrastructure](#-deployment--infrastructure)
 - [🧠 Data Structures & Algorithms](#-data-structures--algorithms)
-- [🛠️ Future Development](#️-future-development)
 - [📄 License](#-license)
 - [📬 Contact](#-contact)
 
@@ -56,12 +55,11 @@ This project serves as a practical application for strengthening full-stack deve
 
 - ⚛️ React
 - 🔵 TypeScript
-- 🍃 Tailwind CSS
-- ⚡ Vite
+- 🍃 Tailwind CSS & Vite
 
 ### **Database**
 
-- 🐘 PostgreSQL
+- 🐘 PostgreSQL (Self-hosted on Raspberry Pi in Production)
 
 ### **DevOps & Infrastructure**
 
@@ -74,58 +72,158 @@ This project serves as a practical application for strengthening full-stack deve
 
 ---
 
-## 🚀 Getting Started
+## 📂 Project Structure
 
-### Prerequisites
+```
+.
+├── 📁 backend/
+│   ├── ⚙️ config/
+│   ├── 🌍 trivia/
+│   ├── 🐳 Dockerfile.prod
+│   ├── 📄 requirements.txt
+│   └── 🚀 manage.py
+├── 📁 frontend/
+│   ├── 📁 src/
+│   └── 🐳 Dockerfile.prod
+├── 📁 nginx/
+│   └── 🐳 Dockerfile
+├── 🐳 docker-compose.yml
+├── 📄 env.example
+├── 🤖 Jenkinsfile
+├── 🤖 Jenkinsfile.deploy
+└── 📄 README.md
+```
+
+---
+
+## 🚀 Deployment & Infrastructure (Production)
+
+This project is deployed in a specific [Home Lab](https://github.com/rajivghandi767/homelab-iac) environment. Below is the documentation of the production architecture.
+
+### Infrastructure
+
+- **Host**: 🥧 Raspberry Pi 4B running a headless Debian distro (DietPi).
+- **Containerization**: 🐳 Docker and Docker Compose manage the services.
+- **Reverse Proxy**: 🌐 Nginx Proxy Manager handles routing and SSL.
+- **Registry**: Images are built and pushed to a **Private GitHub Container Registry**.
+- **Database**: Connects to an external self-hosted PostgreSQL instance.
+
+### CI/CD Pipeline
+
+**Jenkins** watches the `main` branch. On commit:
+
+1.  Tests are run.
+2.  Docker images are built and pushed to the private registry.
+3.  The production environment pulls the new images and updates the containers once daily.
+4.  Secrets are injected dynamically via **HashiCorp Vault** during build and deploy stages.
+5.  Success or Failure reports are sent to Discord.
+
+---
+
+## 💻 Local Replication
+
+This section details how to replicate this environment locally. Since the `docker-compose.yml` is configured for my specific production environment (private registry, external networks), you will need to make the following adjustments to run it on your machine.
+
+### 1. Prerequisites
 
 - 🐳 Docker & Docker Compose
-- 📝 A `.env` file (see `env.example` for required variables)
+- 🔑 An API key of any LLM of your choosing
+- 📝 A `.env` file (see `env.example`)
 
-### Installation
+### 2. Configure Environment (`.env`)
 
-1.  **Clone the repository:**
+Create a `.env` file based on the example.
 
-    ```bash
-    git clone https://github.com/rajivghandi767/country-trivia-web.git
-    cd country-trivia-web
-    ```
+**Key Variable Adjustments (\*):**
 
-2.  **Create your `.env` file:**
+- `POSTGRES_HOST`: _Set this to `db` (matching the service name added in Step 4)._
+- `GEMINI_API_KEY`: _Required for AI grading and quiz generation._
+- `DJANGO_ALLOWED_HOSTS`: _Add `localhost,127.0.0.1`._
+- `VITE_API_URL`: _Set to `http://localhost:8000`._
 
-    Create a `.env` file in the root of the project. You will need to populate it with your credentials for:
+### 3. Modify `docker-compose.yml` for Local Build (\*)
 
-    - PostgreSQL Database
-    - Django (`DJANGO_SECRET_KEY`, `ALLOWED_HOSTS`, etc.)
-    - Google Generative AI (`GEMINI_API_KEY`)
+My production file pulls images from a **Private Registry**. To run this locally, you must switch **ALL** services to build from source and remove external network requirements.
 
-3.  **Run with Docker Compose:**
+**A. Switch from Image to Build:**
+_Update `trivia-backend`, `trivia-backend-init`, `trivia-frontend`, and `trivia-nginx` to use `build` contexts instead of `image`._
 
-    ```bash
-    docker compose up -d --build
-    ```
+```yaml
+# In docker-compose.yml (Example Modifications):
 
-    This command will build the images and start the Django backend, React frontend, PostgreSQL database, and Nginx reverse proxy.
+trivia-backend-init:
+  # image: ghcr.io/...  <-- COMMENT OUT
+  build:
+    context: ./backend
+    dockerfile: Dockerfile.prod
+
+trivia-backend:
+  # image: ghcr.io/...  <-- COMMENT OUT
+  build:
+    context: ./backend
+    dockerfile: Dockerfile.prod
+
+trivia-frontend:
+  # image: ghcr.io/...  <-- COMMENT OUT
+  build:
+    context: ./frontend
+    dockerfile: Dockerfile.prod
+
+trivia-nginx:
+  # image: ghcr.io/...  <-- COMMENT OUT
+  build:
+    context: ./nginx
+    dockerfile: Dockerfile
+```
+
+**B. Update Networks:**
+_Remove `external: true` from the network definitions at the bottom of the file so Docker creates them automatically._
+
+```yaml
+networks:
+  trivia:
+    # external: true  <-- COMMENT OUT
+  core:
+    # external: true  <-- COMMENT OUT
+```
+
+### 4. Database Setup (\*)
+
+Since the production setup connects to an external DB, you must provide one locally. Add this service to your `docker-compose.yml` so the `init` container can reach it:
+
+```yaml
+db:
+  image: postgres:15-alpine
+  container_name: trivia-db
+  environment:
+    - POSTGRES_DB=postgres-core
+    - POSTGRES_USER=trivia-prod
+    - POSTGRES_PASSWORD=your-secure-postgres-password
+  networks:
+    - database
+```
+
+_Ensure your `.env` file matches these credentials and sets `POSTGRES_HOST=db`._
+
+### 5. Start the Application
+
+Once the adjustments are made:
+
+```bash
+docker compose up -d --build
+```
+
+- **Frontend**: `http://localhost:5173` (Requires port mapping `5173:80` on the frontend service if not using Nginx)
+- **Backend**: `http://localhost:8000`
 
 ---
 
 ## 🎮 How to Play
 
-1.  Visit [**trivia.rajivwallace.com**](https://trivia.rajivwallace.com).
+1.  Visit **localhost** (or the live site).
 2.  **Choose a game mode**: "Guess the Capital", "Guess the Country", or one of the "AI-Generated Quizzes".
 3.  **Type your answer** in the input field (for classic modes) or **select an option** (for AI quizzes) and submit.
-4.  See your score update, read a fun fact, and proceed to the next question\!
-
----
-
-## 🚢 Deployment & Infrastructure
-
-This project is fully containerized and deployed within a self-hosted environment on a Raspberry Pi 4B, showcasing a complete CI/CD and monitoring pipeline.
-
-- **Containerization**: **Docker** is used to containerize the Django backend and React frontend, ensuring a consistent and reproducible environment.
-- **CI/CD Automation**: **Jenkins** automates the process of building Docker images, running tests (future implementation), and deploying new versions of the application upon code changes.
-- **Secret Management**: **HashiCorp Vault** is used to securely store and manage sensitive information such as database credentials and API keys, which are injected into the application at runtime.
-- **Monitoring**: **Prometheus** scrapes metrics from the Django application, and **Grafana** provides dashboards for visualizing application performance, request rates, and system health.
-- **Reverse Proxy**: **Nginx Proxy Manager** handles incoming traffic, routing requests to the appropriate containers and managing SSL certificates for secure HTTPS connections.
+4.  See your score update, read a fun fact, and proceed to the next question!
 
 ---
 
@@ -138,18 +236,6 @@ This project utilizes fundamental data structures and algorithms:
   - AI-generated quizzes are fetched as an array of `AIQuestion` objects.
 - **Algorithm: Fisher-Yates Shuffle (via `random.shuffle`)**
   - The backend uses a shuffling algorithm on the queryset to randomize the order of questions for each game session, ensuring unpredictability and replayability.
-
----
-
-## 🛠️ Future Development
-
-This project is actively being developed. Future enhancements include:
-
-- [ ] User authentication and profiles
-- [ ] Persistent high-score leaderboards
-- [ ] Timed game modes
-- [ ] Flag quiz
-- [ ] Map integration to show you where the country/city is
 
 ---
 
