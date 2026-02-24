@@ -32,7 +32,8 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'], url_path='check-answer')
     def check_answer(self, request, pk=None):
         """
-        Receives a user's answer for a specific country and grades it using AI.
+        Receives a user's answer for a specific country and grades it using the 
+        tiered system (Deterministic -> AI -> Fuzzy).
         """
         try:
             country = self.get_object()

@@ -1,41 +1,44 @@
 import { Sun, Moon } from "lucide-react";
 import { useThemeContext } from "../../context/ThemeContext";
+import { ProjectSwitcher } from "./ProjectSwitcher";
 
-// We can define the theme toggle button right in here
-// since it's the only thing the header will do.
 const ThemeToggleButton = () => {
-  const { isDarkMode, toggleTheme } = useThemeContext();
+  const { theme, toggleTheme } = useThemeContext();
 
   return (
     <button
-      className="btn btn-primary p-2 rounded-lg"
+      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-zinc-800 transition-colors"
       onClick={toggleTheme}
       aria-label="Toggle dark mode"
     >
-      {isDarkMode ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+      {theme === "dark" ? (
+        <Sun className="w-5 h-5" />
+      ) : (
+        <Moon className="w-5 h-5" />
+      )}
     </button>
   );
 };
 
 const Header = () => {
   return (
-    <div className="sticky top-0 z-50 bg-[var(--background)] border-b border-gray-200 dark:border-gray-800">
-      <div className="container mx-auto px-4 py-3">
-        <div className="flex items-center justify-between">
-          {/* Left side: Theme Toggle */}
-          <div className="w-14">
-            <ThemeToggleButton />
-          </div>
+    <div className="sticky top-0 z-50 bg-[var(--background)] border-b border-gray-200 dark:border-zinc-800">
+      <div className="container mx-auto px-4 py-3 relative flex items-center justify-center min-h-[60px]">
+        {/* Left side: Project Switcher */}
+        <div className="absolute left-4 flex items-center">
+          <ProjectSwitcher align="left" />
+        </div>
 
-          {/* Center: Title */}
-          <div className="flex-1 text-center">
-            <h1 className="text-2xl font-bold">
-              <span>Country Trivia by Rajiv Wallace</span>
-            </h1>
-          </div>
+        {/* Center: Title (wrapped and padded) */}
+        <div className="text-center w-full px-[80px]">
+          <h1 className="text-lg md:text-2xl font-bold leading-tight">
+            Country Trivia by Rajiv Wallace
+          </h1>
+        </div>
 
-          {/* Right side: Spacer to keep title centered */}
-          <div className="w-14" />
+        {/* Right side: Theme Toggle */}
+        <div className="absolute right-4 flex items-center">
+          <ThemeToggleButton />
         </div>
       </div>
     </div>

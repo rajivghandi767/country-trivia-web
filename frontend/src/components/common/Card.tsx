@@ -15,7 +15,7 @@ const Card = ({ children, className, onClick, hover = true }: CardProps) => {
         "bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border-2 border-black dark:border-gray-800",
         hover && "transition-all duration-300 hover:shadow-lg",
         onClick && "cursor-pointer",
-        className
+        className,
       )}
       onClick={onClick}
     >
@@ -63,7 +63,7 @@ const CardImage = ({
         className={cn(
           "w-full overflow-hidden bg-gray-100 dark:bg-gray-900 flex items-center justify-center",
           aspectRatioClasses[aspectRatio],
-          className
+          className,
         )}
       >
         {fallback || (
@@ -80,7 +80,7 @@ const CardImage = ({
       className={cn(
         "w-full overflow-hidden",
         aspectRatioClasses[aspectRatio],
-        className
+        className,
       )}
     >
       <img
@@ -88,7 +88,7 @@ const CardImage = ({
         alt={alt}
         className={cn(
           "w-full h-full transition-transform duration-300 hover:scale-105",
-          objectFitClasses[objectFit]
+          objectFitClasses[objectFit],
         )}
         onError={() => setHasError(true)}
       />
@@ -121,7 +121,7 @@ const CardTitle = ({ children, className, as = "h3" }: CardTitleProps) => {
     <Component
       className={cn(
         "font-semibold text-transparent bg-clip-text bg-gradient-to-r from-black to-gray-800 dark:from-white dark:to-gray-300",
-        className
+        className,
       )}
     >
       {children}
@@ -152,7 +152,7 @@ const CardFooter = ({ children, className }: CardFooterProps) => {
     <div
       className={cn(
         "mt-auto pt-4 border-t border-black dark:border-gray-800 flex justify-between items-center",
-        className
+        className,
       )}
     >
       {children}

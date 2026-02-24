@@ -1,17 +1,169 @@
 @import "tailwindcss";
 
+/* Tailwind v4 custom variant for the .dark class */
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
+  /* Core colors */
   --background: #ffffff;
   --foreground: #1a1a1a;
+
+  /* UI elements - using your updated soft borders */
+  --card: #ffffff;
+  --card-foreground: #1a1a1a;
+  --card-border: #e2e8f0;
+  --border: #e2e8f0; /* Aliased for compatibility with portfolio components */
+
+  /* Primary colors - standardizing on the slate palette from your local components */
+  --primary: #0f172a;
+  --primary-hover: #1e293b;
+  --primary-foreground: #ffffff;
+
+  /* Accent and utility colors */
+  --accent: #333333;
+  --accent-foreground: #ffffff;
+  --ring: #0f172a;
+
+  /* Gradients for Card Titles and headers */
+  --gradient-from: #000000;
+  --gradient-to: #4b5563;
 }
 
 .dark {
+  /* Core colors - AMOLED optimized */
   --background: #000000;
   --foreground: #e6e6e6;
+
+  /* UI elements */
+  --card: #000000;
+  --card-foreground: #e6e6e6;
+  --card-border: #27272a;
+  --border: #27272a;
+
+  /* Primary colors */
+  --primary: #ffffff;
+  --primary-hover: #f1f5f9;
+  --primary-foreground: #000000;
+
+  /* Accent and utility colors */
+  --accent: #e6e6e6;
+  --accent-foreground: #000000;
+  --ring: #ffffff;
+
+  /* Gradients */
+  --gradient-from: #ffffff;
+  --gradient-to: #d1d5db;
 }
+
 body {
   background-color: var(--background);
   color: var(--foreground);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
-    "Liberation Mono", "Courier New", monospace;
+  font-family:
+    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
+    "Courier New", monospace;
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease; /* Restored from your local update */
+}
+
+/* Global Link Styles from Portfolio */
+a:not([class]) {
+  color: var(--accent);
+  transition: all 0.2s;
+}
+
+a:not([class]):hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Restored Animations for Project Consistency */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+.animate-fade-up {
+  animation: fadeUp 0.5s ease-out;
+}
+.animate-scale-in {
+  animation: scaleIn 0.3s ease-out;
+}
+
+/* Component Utility Classes */
+.bg-card {
+  background-color: var(--card);
+}
+.text-card-foreground {
+  color: var(--card-foreground);
+}
+.border-default {
+  border-color: var(--card-border);
+}
+
+.hover-scale {
+  transition: transform 0.3s;
+}
+.hover-scale:hover {
+  transform: scale(1.02);
+}
+
+/* Gradient Text logic used in CardTitle components */
+.text-gradient {
+  background: linear-gradient(
+    to right,
+    var(--gradient-from),
+    var(--gradient-to)
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Button & Card Element Consistency */
+.btn-primary {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+.btn-outline {
+  background-color: transparent;
+  border: 2px solid var(--card-border);
+  color: var(--foreground);
+}
+
+/* AMOLED Specific Optimizations */
+html[data-amoled="true"].dark {
+  --background: #000000;
+  --card: #000000;
 }
