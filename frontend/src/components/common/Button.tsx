@@ -29,14 +29,14 @@ const Button = ({
 
   const variantStyles = {
     primary:
-      "bg-gradient-to-r from-black to-gray-800 dark:from-gray-50 dark:to-white text-white dark:text-black hover:from-gray-800 hover:to-gray-700 dark:hover:from-gray-200 dark:hover:to-gray-100 focus:ring-gray-400 dark:focus:ring-gray-600",
+      "bg-slate-900 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-gray-100 focus:ring-slate-400 dark:focus:ring-gray-400",
     secondary:
-      "bg-gray-200 dark:bg-gray-800 text-black dark:text-white hover:bg-gray-300 dark:hover:bg-gray-700 focus:ring-gray-300 dark:focus:ring-gray-700",
+      "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 focus:ring-slate-300 dark:focus:ring-zinc-700",
     outline:
-      "border-2 border-black dark:border-gray-300 text-black dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-900 focus:ring-gray-400 dark:focus:ring-gray-600",
+      "border-2 border-slate-200 dark:border-zinc-800 bg-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-zinc-900 focus:ring-slate-200 dark:focus:ring-zinc-800",
     ghost:
-      "text-black dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-900 focus:ring-gray-400 dark:focus:ring-gray-600",
-    link: "text-black dark:text-gray-300 hover:text-gray-700 dark:hover:text-white underline underline-offset-4 focus:ring-gray-400 dark:focus:ring-gray-600",
+      "text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-900 focus:ring-slate-100 dark:focus:ring-zinc-900",
+    link: "text-slate-900 dark:text-white hover:underline underline-offset-4 focus:ring-slate-100 dark:focus:ring-zinc-900",
   };
 
   const sizeStyles = {
@@ -56,7 +56,7 @@ const Button = ({
         sizeStyles[size],
         widthStyle,
         isLoading || disabled ? "opacity-50 cursor-not-allowed" : "",
-        className
+        className,
       )}
       disabled={isLoading || disabled}
       {...props}
