@@ -35,12 +35,15 @@ class Command(BaseCommand):
             1. DIVERSITY: Mix easy, medium, and challenging questions. 
             2. FACT CHECK: Use historical/static data (Knowledge Cutoff Jan 2025).
             3. FORMAT: [{{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": "...", "funFact": "..."}}]
+            
+            CRITICAL: Ensure the JSON is perfectly formatted. Do not include stray characters or markdown blocks. 
+            Ensure every opening quote has a matching closing quote.
             """
 
             try:
-                # 4000 tokens ensures enough room for the whole batch
+
                 quiz_data = _generate_ai_json(
-                    prompt, temperature=0.7, max_tokens=4000)
+                    prompt, temperature=0.7, max_tokens=6000)
 
                 saved = 0
                 for item in quiz_data:
