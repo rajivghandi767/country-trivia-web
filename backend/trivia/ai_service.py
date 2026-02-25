@@ -1,4 +1,4 @@
-from trivia.models import QuizTopic, QuizQuestion
+from trivia.models import QuizTopic, QuizQuestion, CountryFunFact, Country
 from datetime import datetime
 import os
 import google.generativeai as genai
@@ -6,7 +6,6 @@ import logging
 import json
 import re
 from functools import lru_cache
-from trivia.models import Country
 from django.core.cache import cache
 from thefuzz import fuzz
 
@@ -213,7 +212,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
             "grading_method": "fuzzy"
         }
 
-    # TIER 3: AI Grading
+    # TIER 3: AI Grading & Fact Harvesting
     if not api_key:
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "points_awarded": 0, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
@@ -242,11 +241,15 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
     2. Compare the parsed user answers to the "Full List of Correct Capital(s)". Be lenient with common misspellings.
     3. Identify correctly guessed capitals, incorrect guesses, and missed correct capitals.
     4. Create a "shared_capital_info" message *only* if a user's *correct guess* is also a capital of another country.
-
-    5. **Create a final "feedback_message":**
-        - **If `all_capitals_guessed` is true:** "Correct! The capital of {country_name} is {correct_capitals_list[0]}." or "Correct! The {capital_count} capitals of {country_name} are {", ".join(correct_capitals_list)}. You got them all!"
-        - **If `is_correct` is true BUT partially correct:** "Partially correct! You found [count] of the {capital_count} capitals: [list]. The capital cities of {country_name} are {", ".join(correct_capitals_list)}."
-        - **If `is_correct` is false:** "Incorrect 😔. The correct capital is {correct_capitals_list[0]}." or "Incorrect 😔. The correct capitals are {", ".join(correct_capitals_list)}."
+    5. Create a final "feedback_message":
+        - If `all_capitals_guessed` is true: "Correct! The capital of {country_name} is {correct_capitals_list[0]}." or "Correct! The {capital_count} capitals of {country_name} are {", ".join(correct_capitals_list)}. You got them all!"
+        - If `is_correct` is true BUT partially correct: "Partially correct! You found [count] of the {capital_count} capitals: [list]. The capital cities of {country_name} are {", ".join(correct_capitals_list)}."
+        - If `is_correct` is false: "Incorrect 😔. The correct capital is {correct_capitals_list[0]}." or "Incorrect 😔. The correct capitals are {", ".join(correct_capitals_list)}."
+    6. Provide exactly 3 ADDITIONAL unique facts about {country_name}.
+       - Fact 1: Historical milestone.
+       - Fact 2: Geographic anomaly or feature.
+       - Fact 3: Cultural or general trivia.
+       (Knowledge cutoff is January 2025)
 
     **JSON Output Format:**
     {{
@@ -257,16 +260,18 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
       "missed_capitals": ["Cape Town", "Bloemfontein"],
       "points_awarded": 1,
       "shared_capital_info": null,
-      "feedback_message": "Partially correct! You found 1 of the 3 capitals: Pretoria. The full list is Pretoria, Cape Town, Bloemfontein."
+      "feedback_message": "Partially correct! You found 1 of the 3 capitals: Pretoria. The full list is Pretoria, Cape Town, Bloemfontein.",
+      "extra_facts": ["Historical fact here", "Geographic fact here", "Cultural fact here"]
     }}
     **CRITICAL: Respond ONLY with the raw JSON object.**
     """
 
     try:
-        result_json = _generate_ai_json(prompt)
+        # Bumped temperature slightly to 0.5 to ensure varied extra facts
+        result_json = _generate_ai_json(prompt, temperature=0.5)
         result_json["grading_method"] = "ai"
         logger.info(
-            f"AI capital grading complete for {country_name}. User: '{user_answer_str}'. Result: {result_json}")
+            f"AI capital grading complete for {country_name}. User: '{user_answer_str}'.")
         return result_json
     except Exception as e:
         logger.error(f"Error calling Gemini or parsing JSON for capital: {e}")
@@ -296,7 +301,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 
     all_capitals_map = get_all_capitals_map()
 
-    # Get ALL valid countries for this capital (e.g., handles Kingston -> Jamaica AND Norfolk Island)
+    # Get ALL valid countries for this capital
     valid_countries_for_capital = [correct_country_name]
     capital_lower = capital_name_for_context.lower()
     if capital_lower in all_capitals_map:
@@ -344,7 +349,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
             "grading_method": "fuzzy"
         }
 
-    # TIER 3: AI Grading
+    # TIER 3: AI Grading & Fact Harvesting
     if not api_key:
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
@@ -364,23 +369,30 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     **Your Task:**
     1. Determine if "User's Answer" is a correct match for "The Correct Country" OR any other country in the Context that shares this capital.
     2. Be lenient with common misspellings (e.g., "Grmany" for "Germany") and abbreviations ("USA").
-    3. **Create a "feedback_message":**
-        - **If Incorrect:** First check if "User's Answer" is *another* country sharing the *same capital*. If yes: "Correct! {capital_name_for_context} is the capital of {user_answer_str}. (It's also the capital of: {correct_country_name})." If no: "Incorrect 😔. The correct answer is {correct_country_name}."
-        - **If Correct (1 capital):** "Correct! {capital_name_for_context} is the capital of {correct_country_name}."
-        - **If Correct (>1 capital):** "Correct! {capital_name_for_context} is one of the {capital_count} capitals of {correct_country_name}. The other capital cities are [list]."
+    3. Create a "feedback_message":
+        - If Incorrect: Check if "User's Answer" is *another* country sharing the *same capital*. If yes: "Correct! {capital_name_for_context} is the capital of {user_answer_str}. (It's also the capital of: {correct_country_name})." If no: "Incorrect 😔. The correct answer is {correct_country_name}."
+        - If Correct (1 capital): "Correct! {capital_name_for_context} is the capital of {correct_country_name}."
+        - If Correct (>1 capital): "Correct! {capital_name_for_context} is one of the {capital_count} capitals of {correct_country_name}. The other capital cities are [list]."
+    4. Provide exactly 3 ADDITIONAL unique facts about {correct_country_name}.
+       - Fact 1: Historical milestone.
+       - Fact 2: Geographic anomaly or feature.
+       - Fact 3: Cultural or general trivia.
+       (Knowledge cutoff is January 2025)
 
     **JSON Output Format:**
     {{
       "is_correct": true,
-      "feedback_message": "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are Cape Town & Bloemfontein."
+      "feedback_message": "Correct! Pretoria is one of the three capitals of South Africa. The other capital cities are Cape Town & Bloemfontein.",
+      "extra_facts": ["Historical fact here", "Geographic fact here", "Cultural fact here"]
     }}
     **CRITICAL: Respond ONLY with the raw JSON object.**
     """
     try:
-        result_json = _generate_ai_json(prompt, max_tokens=1024)
+        result_json = _generate_ai_json(
+            prompt, temperature=0.5, max_tokens=1024)
         result_json["grading_method"] = "ai"
         logger.info(
-            f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'. Result: {result_json}")
+            f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'.")
         return result_json
     except Exception as e:
         logger.error(f"Error calling Gemini or parsing JSON for country: {e}")
@@ -388,8 +400,6 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 
 # --- Feature 2: Fun Fact Generator ---
 
-
-# In backend/trivia/ai_service.py
 
 def get_fun_fact(country_name):
     """Fetches a random fun fact from the database."""
@@ -401,7 +411,7 @@ def get_fun_fact(country_name):
         random_fact = country.fun_facts.order_by('?').first()
 
         if random_fact:
-            return random_fact.fact
+            return random_fact.fact_text  # Updated to match your model definition
 
         # Fallback if the database has no facts for this country yet
         return f"Did you know {country_name} is a fascinating place to learn about!"
