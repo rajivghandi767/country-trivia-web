@@ -139,6 +139,7 @@ REST_FRAMEWORK.update({
         'rest_framework.renderers.JSONRenderer',
     ],
     'DEFAULT_PAGINATION_CLASS': None,
+    'PAGE_SIZE': None,
 })
 
 # ============================================================================
