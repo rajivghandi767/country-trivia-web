@@ -5,44 +5,46 @@ from trivia.ai_service import _generate_ai_json
 
 
 class Command(BaseCommand):
-    help = 'Generates batches of quiz questions using Gemini AI and saves them to the DB'
+    help = 'Generates AI quiz questions for the frontend topics.'
 
     def handle(self, *args, **kwargs):
-        # Define the topics you want to support in your app
-        core_topics = ["World Geography", "Formula 1", "Caribbean History"]
+        core_topics = [
+            "Formula 1",
+            "Caribbean History",
+            "English Premier League"
+        ]
 
         for topic_name in core_topics:
-            topic, created = QuizTopic.objects.get_or_create(name=topic_name)
+            # Add the defaults dictionary so Django knows what to name the new row!
+            topic, _ = QuizTopic.objects.get_or_create(
+                name__iexact=topic_name,
+                defaults={'name': topic_name}
+            )
 
-            # Target pool size: Skip if we already have 50+ questions for this topic
+            # Skip if we already have a healthy pool for this topic
             if topic.questions.count() >= 50:
-                self.stdout.write(f"Topic '{topic_name}' is well stocked.")
+                self.stdout.write(
+                    f"⏭️ Skipping {topic_name}, already well-stocked.")
                 continue
 
-            self.stdout.write(f"Generating 15 new questions for: {topic_name}")
+            self.stdout.write(f"🚀 Generating batch for: {topic_name}")
 
-            # The prompt includes the Knowledge Cutoff directive
             prompt = f"""
-            You are a trivia game API. Generate a list of 15 multiple-choice trivia questions about {topic_name}.
-            
-            **CRITICAL Guiding Principles:**
-            1. Knowledge Cutoff constraint: Do NOT generate questions about current events, active sports records, or political leaders that are subject to change after January 2025. Focus entirely on historical, geographical, or static facts.
-            2. Single Correct Answer: Each question MUST have only one indisputably correct answer from the provided options.
-            3. Unambiguous Options: Provide exactly 4 clear options.
-            
-            **JSON Output Format:** A single JSON list `[...]`.
-            Each object must have exactly: "question" (str), "options" (list of 4 strs), "correctAnswer" (str), "funFact" (str).
-            **CRITICAL: Respond ONLY with the raw JSON list.**
+            Generate a JSON list of EXACTLY 15 unique multiple-choice trivia questions for {topic_name}.
+            STRICT QUALITY REQUIREMENTS:
+            1. DIVERSITY: Mix easy, medium, and challenging questions. 
+            2. FACT CHECK: Use historical/static data (Knowledge Cutoff Jan 2025).
+            3. FORMAT: [{{"question": "...", "options": ["A", "B", "C", "D"], "correctAnswer": "...", "funFact": "..."}}]
             """
 
             try:
-                # Use a larger max_tokens since we are requesting 15 full question objects
+                # 4000 tokens ensures enough room for the whole batch
                 quiz_data = _generate_ai_json(
-                    prompt, temperature=0.7, max_tokens=4096)
+                    prompt, temperature=0.7, max_tokens=4000)
 
-                saved_count = 0
+                saved = 0
                 for item in quiz_data:
-                    # Prevent duplicate questions
+                    # Deduplication check
                     if not QuizQuestion.objects.filter(topic=topic, question_text=item['question']).exists():
                         QuizQuestion.objects.create(
                             topic=topic,
@@ -51,14 +53,11 @@ class Command(BaseCommand):
                             correct_answer=item['correctAnswer'],
                             fun_fact=item['funFact']
                         )
-                        saved_count += 1
+                        saved += 1
 
                 self.stdout.write(self.style.SUCCESS(
-                    f"Saved {saved_count} new questions for {topic_name}"))
-
-                # Stop after generating one topic per run to conserve daily API requests
-                break
+                    f"✅ Saved {saved} new questions for {topic_name}"))
 
             except Exception as e:
                 self.stderr.write(self.style.ERROR(
-                    f"Error generating questions for {topic_name}: {e}"))
+                    f"❌ Error generating questions for {topic_name}: {e}"))

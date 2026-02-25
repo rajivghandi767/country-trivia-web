@@ -9,8 +9,7 @@ class Command(BaseCommand):
     help = 'Generates fun facts using Gemini AI and saves them to the database'
 
     def handle(self, *args, **kwargs):
-        # 1. Target 5 countries that have fewer than 10 facts.
-        # order_by('fact_count') ensures we always prioritize the countries with the least facts.
+        # 1. Target 25 countries that have fewer than 10 facts.
         countries_needing_facts = Country.objects.annotate(
             fact_count=models.Count('fun_facts')
         ).filter(fact_count__lt=10).order_by('fact_count')[:25]
@@ -23,8 +22,7 @@ class Command(BaseCommand):
         country_names = [c.name for c in countries_needing_facts]
         self.stdout.write(f"Generating facts for: {', '.join(country_names)}")
 
-        # 2. Update the prompt to ask for obscure/lesser-known facts to reduce the chance
-        # of the AI generating the exact same fact it generated yesterday.
+        # 2. The Prompt
         prompt = f"""
         You are a trivia host. Generate one unique, lesser-known, and interesting "Did you know?" fun fact for each of the following countries: {json.dumps(country_names)}.
         The fact must be related to geography, history, science, football (soccer), or Formula 1.
@@ -33,19 +31,21 @@ class Command(BaseCommand):
         """
 
         try:
-            # Slightly higher temperature for more variety
             result_json = _generate_ai_json(prompt, temperature=0.8)
 
             for country in countries_needing_facts:
                 if country.name in result_json:
                     new_fact_text = result_json[country.name]
 
-                    # 3. Optional but recommended: Check if this exact fact already exists
-                    # in the database to prevent duplicates before saving.
-                    if not CountryFunFact.objects.filter(country=country, fact=new_fact_text).exists():
+                    # 3. FIX: Changed 'fact' to 'fact_text' in the filter
+                    if not CountryFunFact.objects.filter(country=country, fact_text=new_fact_text).exists():
+
+                        # FIX: Changed 'fact' to 'fact_text' and added our tracking fields
                         CountryFunFact.objects.create(
                             country=country,
-                            fact=new_fact_text
+                            fact_text=new_fact_text,
+                            is_ai_generated=True,
+                            source='jenkins'
                         )
                         self.stdout.write(self.style.SUCCESS(
                             f"Saved new fact for {country.name}"))
