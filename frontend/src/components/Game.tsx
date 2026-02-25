@@ -6,6 +6,8 @@ import { cn } from "@/utils/styleUtils";
 
 import { Button } from "./common/Button";
 import { Card, CardContent, CardTitle } from "./common/Card";
+import { ReportModal } from "./common/ReportModal";
+import { ToolTip } from "./common/ToolTip";
 import { Section } from "./common/Section";
 import DataLoader from "./common/DataLoader";
 import ResultDisplay from "./common/ResultDisplay";
@@ -35,6 +37,7 @@ const Game = () => {
     fresh: boolean;
   } | null>(null);
   const [gameId, setGameId] = useState(0);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
 
   const {
     data: countries,
@@ -363,6 +366,16 @@ const Game = () => {
             {funFact}
           </div>
         )}
+        {/* Report Issue Toggle */}
+        <div className="mt-4 text-center">
+          <button
+            type="button"
+            onClick={() => setIsReportModalOpen(true)}
+            className="text-xs opacity-50 hover:opacity-100 underline transition-opacity duration-200"
+          >
+            Report an issue with this question
+          </button>
+        </div>
       </CardContent>
     );
   };
@@ -397,9 +410,10 @@ const Game = () => {
         </Button>
         <CardTitle
           as="h3"
-          className="text-center pt-4 border-t border-[var(--card-border)]"
+          className="text-center pt-4 border-t border-[var(--card-border)] flex items-center justify-center gap-2"
         >
           AI-Generated Quizzes
+          <ToolTip text="Trivia is based on historical data available up to January 2025." />
         </CardTitle>
         <Button
           size="lg"
@@ -476,13 +490,34 @@ const Game = () => {
       );
     }
 
+    // Extract context for the bug report based on game mode
+    const currentQuestionContext = gameData[currentIndex];
+    const reportCountryName =
+      gameMode === "capital" || gameMode === "country"
+        ? (currentQuestionContext as Country)?.name
+        : undefined;
+    const reportQuestionId =
+      gameMode === "ai-quiz"
+        ? (currentQuestionContext as AIQuestion)?.id
+        : undefined;
+
     // 3. Normal Game State
     return (
-      <Card className={cardBase}>
-        {!gameMode
-          ? renderModeSelection()
-          : renderGameInterface(gameData.length ? gameData : countries || [])}
-      </Card>
+      <>
+        <Card className={cardBase}>
+          {!gameMode
+            ? renderModeSelection()
+            : renderGameInterface(gameData.length ? gameData : countries || [])}
+        </Card>
+
+        {/* NEW: Render the Modal */}
+        <ReportModal
+          isOpen={isReportModalOpen}
+          onClose={() => setIsReportModalOpen(false)}
+          countryName={reportCountryName}
+          questionId={reportQuestionId}
+        />
+      </>
     );
   };
 

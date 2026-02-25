@@ -32,3 +32,10 @@ export interface AIQuestion {
 }
 
 export type GameMode = "capital" | "country" | "ai-quiz" | null;
+
+export interface BugReportPayload {
+  issue_type: 'fact_error' | 'typo' | 'ui_bug' | 'other';
+  user_note: string;
+  country_name?: string;
+  question_id?: number;
+}

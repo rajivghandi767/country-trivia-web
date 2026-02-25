@@ -1,4 +1,4 @@
-import { ApiResponse, Country, AIAnswerResponse, AIQuestion, GameMode } from "@/types";
+import { ApiResponse, Country, AIAnswerResponse, AIQuestion, GameMode, BugReportPayload } from "@/types";
 
 // Base URL for the API from environment variables, without a fallback.
 const API_URL = import.meta.env.VITE_API_URL + '/api/';
@@ -48,9 +48,6 @@ async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise
 }
 
 const apiService = {
-  /**
-   * Fetches a shuffled list of all countries for the trivia game.
-   */
   trivia: {
     getShuffledCountries: (): Promise<ApiResponse<Country[]>> => {
       return fetchApi<Country[]>('trivia/?shuffle=true');
@@ -70,17 +67,11 @@ const apiService = {
       });
     },
 
-    /**
-     * Fun Fact
-     */
     getFunFact: (countryId: number): Promise<ApiResponse<{ fact: string }>> => {
       return fetchApi<{ fact: string }>(`trivia/${countryId}/fun-fact/`);
     },
   },
   
-  /**
-   * ADD THIS OBJECT for the AI Quiz
-   */
   aiQuiz: {
     generate: (topic: string, fresh: boolean = false): Promise<ApiResponse<AIQuestion[]>> => {
       let endpoint = `ai-quiz/generate/?topic=${encodeURIComponent(topic)}`;
@@ -90,6 +81,16 @@ const apiService = {
       return fetchApi<AIQuestion[]>(endpoint);
     },
   },
+
+  // --- BUG REPORTING ENDPOINT ---
+  reports: {
+    submitIssue: (payload: BugReportPayload): Promise<ApiResponse<any>> => {
+      return fetchApi<any>('report-issue/', {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    }
+  }
 };
 
 export default apiService;
