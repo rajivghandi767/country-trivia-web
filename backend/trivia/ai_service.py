@@ -402,23 +402,65 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 
 
 def get_fun_fact(country_name):
-    """Fetches a random fun fact from the database."""
+    """Fetches a random fun fact from the DB, or generates them on-the-fly if empty."""
     try:
-        # Fetch the country
+        # 1. Check the database first
         country = Country.objects.get(name=country_name)
-
-        # order_by('?') is Django's way of selecting a random row
         random_fact = country.fun_facts.order_by('?').first()
 
+        # If we have a fact, return it immediately (costs 0 API credits)
         if random_fact:
-            return random_fact.fact_text  # Updated to match your model definition
+            return random_fact.fact_text
 
-        # Fallback if the database has no facts for this country yet
+        # --- 2. JUST-IN-TIME (JIT) HARVESTING ---
+        # If the database is empty for this country, fetch facts live
+        if not api_key:
+            return f"Did you know {country_name} is a fascinating place to learn about!"
+
+        logger.info(
+            f"No facts found for {country_name}. Triggering JIT harvesting.")
+
+        prompt = f"""
+        You are an expert geography trivia host. 
+        Provide exactly 3 unique, interesting, and lesser-known fun facts about {country_name}.
+        Knowledge cutoff is January 2025.
+        
+        Return ONLY a raw JSON object matching this exact structure:
+        {{
+            "extra_facts": ["fact 1", "fact 2", "fact 3"]
+        }}
+        """
+
+        result = _generate_ai_json(prompt, temperature=0.7)
+
+        if result and result.get('extra_facts'):
+            harvest_count = 0
+            for fact_text in result['extra_facts']:
+                _, created = CountryFunFact.objects.get_or_create(
+                    country=country,
+                    fact_text=fact_text,
+                    defaults={'is_ai_generated': True, 'source': 'user'}
+                )
+                if created:
+                    harvest_count += 1
+
+            if harvest_count > 0:
+                logger.info(
+                    f"JIT Harvested {harvest_count} new facts for {country_name}.")
+
+            # Return the first newly harvested fact to the frontend immediately
+            return result['extra_facts'][0]
+
+        # Ultimate fallback if the AI request fails or returns bad JSON
         return f"Did you know {country_name} is a fascinating place to learn about!"
 
     except Country.DoesNotExist:
         logger.error(f"Fun fact requested for unknown country: {country_name}")
         return "Did you know the world has over 190 countries?"
+    except Exception as e:
+        logger.error(
+            f"Error during JIT fun fact generation for {country_name}: {e}")
+        return f"Did you know {country_name} is a fascinating place to learn about!"
 
 # --- Feature 3: Dynamic Quiz Generator ---
 
