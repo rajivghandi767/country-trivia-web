@@ -107,6 +107,7 @@ pipeline {
                     [envVar: 'GEMINI_API_KEY', vaultKey: 'GEMINI_API_KEY'],
                     [envVar: 'GEMINI_PROD_MODEL', vaultKey: 'GEMINI_PROD_MODEL'],
                     [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
+                    [envVar: 'DISCORD_BUG_WEBHOOK_URL', vaultKey: 'DISCORD_BUG_WEBHOOK_URL'],
                 ]]]) {
                     
                     withCredentials([usernamePassword(credentialsId: REGISTRY_CRED_ID, usernameVariable: 'REGISTRY_USER', passwordVariable: 'REGISTRY_PASS')]) {
@@ -125,6 +126,7 @@ pipeline {
                                 ADMIN_URL='${ADMIN_URL}'
                                 GEMINI_API_KEY='${GEMINI_API_KEY}'
                                 GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'
+                                DISCORD_BUG_WEBHOOK_URL='${DISCORD_BUG_WEBHOOK_URL}'
                             """.stripIndent()
 
                             writeFile file: '.env.prod', text: envContent

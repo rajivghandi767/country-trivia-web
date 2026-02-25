@@ -1,6 +1,8 @@
-from rest_framework import viewsets, status
-from .models import Country
-from .serializers import CountrySerializer
+import os
+import requests
+from rest_framework import viewsets, status, mixins
+from .models import Country, ReportedIssue
+from .serializers import CountrySerializer, ReportedIssueSerializer
 import random
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -111,3 +113,40 @@ class AIQuizViewSet(viewsets.ViewSet):
             logger.error(
                 f"Error in generate_quiz view for {topic}: {e}", exc_info=True)
             return Response({"error": "An internal error occurred while generating the quiz."}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class ReportedIssueViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
+    """
+    A ViewSet strictly for creating bug/fact reports.
+    Only allows POST requests.
+    """
+    queryset = ReportedIssue.objects.all()
+    serializer_class = ReportedIssueSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            issue = serializer.save()
+
+            # Trigger Discord Webhook Notification
+            webhook_url = os.getenv('DISCORD_BUG_REPORT_WEBHOOK_URL')
+            if webhook_url:
+                context_str = ""
+                if issue.country_name:
+                    context_str += f"**Country:** {issue.country_name} "
+                if issue.question_id:
+                    context_str += f"**Question ID:** {issue.question_id}"
+
+                discord_payload = {
+                    "content": f"🚨 **New Bug/Fact Report** 🚨\n**Type:** {issue.get_issue_type_display()}\n**Details:** {issue.user_note}\n{context_str}"
+                }
+                try:
+                    # Fire and forget with a short timeout so it doesn't hang the API response
+                    requests.post(webhook_url, json=discord_payload, timeout=5)
+                except Exception as e:
+                    logger.error(f"Failed to send Discord bug report: {e}")
+
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

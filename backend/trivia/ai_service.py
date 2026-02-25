@@ -1,3 +1,4 @@
+from trivia.models import QuizTopic, QuizQuestion
 from datetime import datetime
 import os
 import google.generativeai as genai
@@ -118,7 +119,7 @@ def _get_fuzzy_fallback(user_answer: str, correct_options: list, default_failure
     }
 
 
-def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 2048):
+def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4096):
     """Centralized helper to interact with Gemini API and return parsed JSON."""
     generation_config = {
         "temperature": temperature,
@@ -358,7 +359,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     - Full List of Capitals for {correct_country_name}: {json.dumps(correct_capitals_list)}
     - Number of Capitals for {correct_country_name}: {capital_count}
     - User's Answer: "{user_answer_str}"
-    - Context (All known capitals and their countries): {json.dumps(all_capitals_map, default=str, indent=2)}
+    - Context (All valid countries that have {capital_name_for_context} as a capital): {json.dumps(valid_countries_for_capital)}
 
     **Your Task:**
     1. Determine if "User's Answer" is a correct match for "The Correct Country" OR any other country in the Context that shares this capital.
@@ -375,7 +376,6 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     }}
     **CRITICAL: Respond ONLY with the raw JSON object.**
     """
-
     try:
         result_json = _generate_ai_json(prompt, max_tokens=1024)
         result_json["grading_method"] = "ai"
@@ -389,85 +389,54 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 # --- Feature 2: Fun Fact Generator ---
 
 
+# In backend/trivia/ai_service.py
+
 def get_fun_fact(country_name):
-    if not api_key:
-        return "AI features are currently disabled."
-
-    # --- CACHE LOGIC ---
-    cache_key = f"fun_fact_{country_name.replace(' ', '_').lower()}"
-
-    cached_fact = cache.get(cache_key)
-    if cached_fact:
-        logger.info(f"CACHE HIT: Returning cached fun fact for {country_name}")
-        return cached_fact
-
-    logger.info(f"CACHE MISS: Generating new fun fact for {country_name}")
-
-    prompt = f"""
-    You are a trivia host. Give me one single, interesting "Did you know?" fun fact about {country_name}.
-    The fact must be related to one of these topics: geography, travel, caribbean history, science, football (soccer), or Formula 1.
-    The fact must be 1-2 sentences long. Start the fact with "Did you know". Respond with *only* the fact.
-    """
+    """Fetches a random fun fact from the database."""
     try:
-        model = genai.GenerativeModel(
-            model_name=ACTIVE_MODEL_NAME,
-            generation_config={"temperature": 0.7, "top_p": 1,
-                               "top_k": 1, "max_output_tokens": 200},
-        )
-        response = model.generate_content(prompt)
-        fact = response.text.strip()
+        # Fetch the country
+        country = Country.objects.get(name=country_name)
 
-        # Cache the fact for 24 hours (86400 seconds) to save API calls
-        cache.set(cache_key, fact, timeout=86400)
+        # order_by('?') is Django's way of selecting a random row
+        random_fact = country.fun_facts.order_by('?').first()
 
-        logger.info(
-            f"AI Fun Fact generated and cached for {country_name}: {fact}")
-        return fact
-    except Exception as e:
-        logger.error(f"Error getting fun fact for {country_name}: {e}")
+        if random_fact:
+            return random_fact.fact
+
+        # Fallback if the database has no facts for this country yet
         return f"Did you know {country_name} is a fascinating place to learn about!"
+
+    except Country.DoesNotExist:
+        logger.error(f"Fun fact requested for unknown country: {country_name}")
+        return "Did you know the world has over 190 countries?"
 
 # --- Feature 3: Dynamic Quiz Generator ---
 
 
-def generate_ai_quiz(topic, fresh=False):
-    if not api_key:
-        return {"error": "AI features are currently disabled."}
-
-    cache_key = f"ai_quiz_{topic.replace(' ', '_').lower()}"
-    if fresh:
-        cache.delete(cache_key)
-    else:
-        cached_quiz = cache.get(cache_key)
-        if cached_quiz:
-            return cached_quiz
-
-    today = datetime.today()
-    current_date_str = today.strftime("%B %d, %Y")
-
-    prompt = f"""
-    You are a trivia game API. Your task is to generate a list of 10 (ten) multiple-choice trivia questions about {topic}.
-
-    **CRITICAL Guiding Principles:**
-    1.  **Currentness & Accuracy:** All questions and answers MUST be factually correct and verifiable as of **{current_date_str}**. 
-    2.  **Single Correct Answer:** Each question MUST have **only one** indisputably correct answer from the provided options.
-    3.  **Unambiguous Options:** All options must be clear and specific. Avoid ambiguity.
-    4.  **Topic Scope:** Provide a good mix of sub-topics related to {topic}.
-    5.  **Diversity & Creativity:** Ensure a diverse range of question types and formats.
-
-    **JSON Output Format:** A single JSON list `[...]`.
-    Each object must have exactly: "id" (int), "question" (str), "options" (list of 4 strs), "correctAnswer" (str), "funFact" (str).
-    **CRITICAL: Respond ONLY with the raw JSON list.**
-    """
-
+def generate_ai_quiz(topic_name, fresh=False):
+    """Fetches 10 random pre-generated quiz questions from the database."""
     try:
-        quiz_data = _generate_ai_json(prompt, temperature=0.5)
-        if not isinstance(quiz_data, list) or len(quiz_data) == 0:
-            raise ValueError("AI did not return a list.")
+        # Fetch the topic (case-insensitive match)
+        topic = QuizTopic.objects.get(name__iexact=topic_name)
 
-        cache.set(cache_key, quiz_data, timeout=60*5)
-        logger.info(f"AI Quiz generated for topic: {topic}")
+        # Pull 10 random questions for this topic
+        questions = topic.questions.order_by('?')[:10]
+
+        if questions.count() < 10:
+            return {"error": "We are still building the question pool for this topic. Check back later!"}
+
+        # Format them to match the exact JSON structure your React frontend expects
+        quiz_data = []
+        for q in questions:
+            quiz_data.append({
+                "id": q.id,
+                "question": q.question_text,
+                "options": q.options,
+                "correctAnswer": q.correct_answer,
+                "funFact": q.fun_fact
+            })
+
         return quiz_data
-    except Exception as e:
-        logger.error(f"Error generating AI quiz for {topic}: {e}")
-        return {"error": f"Failed to generate AI quiz: {e}"}
+
+    except QuizTopic.DoesNotExist:
+        return {"error": f"Topic '{topic_name}' not found."}
