@@ -10,12 +10,34 @@ logger = logging.getLogger(__name__)
 
 
 class CountryViewSet(viewsets.ReadOnlyModelViewSet):
-    # FIX 1: Added explicit ordering to satisfy DRF pagination
+    """
+    Standard viewset for Country data. Handles the main trivia game logic.
+    """
+    # Explicit ordering satisfies DRF pagination requirements
     queryset = Country.objects.all().order_by('id')
     serializer_class = CountrySerializer
 
+    def get_queryset(self):
+        """
+        Dynamically limits and shuffles the queryset based on API parameters.
+        20-question quiz length while ensuring a fresh 
+        set of questions every time a user starts a new game.
+        """
+        queryset = super().get_queryset()
+        shuffle = self.request.query_params.get(
+            'shuffle', 'false').lower() == 'true'
+
+        if shuffle:
+            # Order randomly ('?') and slice to exactly 20 results
+            return queryset.order_by('?')[:20]
+
+        return queryset
+
     @action(detail=True, methods=['post'], url_path='check-answer')
     def check_answer(self, request, pk=None):
+        """
+        Grades user answers and harvests AI-generated feedback into the database.
+        """
         country = self.get_object()
         user_answer = request.data.get('user_answer', '').strip()
         game_mode = request.data.get('game_mode', 'capital')
@@ -23,7 +45,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         if not user_answer:
             return Response({"error": "No answer provided."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 1. Dispatch grading
+        # 1. Dispatch grading based on mode
         if game_mode == 'capital':
             result = ai_service.grade_capital_answer(
                 country.name, country.capital, user_answer)
@@ -33,7 +55,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         else:
             return Response({"error": "Invalid game mode."}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 2. Harvesting Logic
+        # 2. Harvesting Logic: Save AI feedback as facts for future use
         if result.get('grading_method') == 'ai':
             if result.get('is_correct') and result.get('feedback_message'):
                 CountryFunFact.objects.get_or_create(
@@ -57,18 +79,19 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                     logger.info(
                         f"Harvested {harvest_count} new facts for {country.name} from live user.")
 
+            # Remove extra_facts from response before sending to frontend
             result.pop('extra_facts', None)
 
         return Response(result)
 
-    # FIX 2: Restored the fun-fact route
     @action(detail=True, methods=['get'], url_path='fun-fact')
     def fun_fact(self, request, pk=None):
+        """
+        Retrieves a fun fact for a specific country, triggering JIT harvesting if needed.
+        """
         country = self.get_object()
         fact_text = ai_service.get_fun_fact(country.name)
 
-        # The "Shotgun" Response:
-        # Guarantees the frontend finds the data regardless of which key it expects
         return Response({
             "fact": fact_text,
             "fun_fact": fact_text,
@@ -77,9 +100,9 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AIQuizViewSet(viewsets.ViewSet):
-    """Handles fetching pre-generated AI quizzes from the DB."""
-
-    # FIX 3: Mapped to the specific /generate/ endpoint the frontend expects
+    """
+    Handles fetching pre-generated AI quizzes (F1, EPL, Caribbean History) from the DB.
+    """
     @action(detail=False, methods=['get'])
     def generate(self, request):
         topic = request.query_params.get('topic', 'World Geography')
@@ -92,6 +115,8 @@ class AIQuizViewSet(viewsets.ViewSet):
 
 
 class ReportedIssueViewSet(viewsets.ModelViewSet):
-    """Handles the user bug reporting system."""
+    """
+    Handles the user bug reporting system.
+    """
     queryset = ReportedIssue.objects.all().order_by('-created_at')
     serializer_class = ReportedIssueSerializer
