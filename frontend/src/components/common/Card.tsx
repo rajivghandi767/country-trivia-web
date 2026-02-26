@@ -12,7 +12,7 @@ const Card = ({ children, className, onClick, hover = true }: CardProps) => {
   return (
     <div
       className={cn(
-        "bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border-2 border-gray-200 dark:border-neutral-800",
+        "bg-white dark:bg-black rounded-lg shadow-md border-2 border-gray-200 dark:border-neutral-800",
         hover && "transition-all duration-300 hover:shadow-lg",
         onClick && "cursor-pointer",
         className,
@@ -103,9 +103,7 @@ interface CardContentProps {
 
 const CardContent = ({ children, className }: CardContentProps) => {
   return (
-    <div className={cn("p-4 flex flex-col grow", className)}>
-      {children}
-    </div>
+    <div className={cn("p-4 flex flex-col grow", className)}>{children}</div>
   );
 };
 
