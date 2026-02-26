@@ -327,7 +327,7 @@ const Game = () => {
             onChange={(e) => setUserAnswer(e.target.value)}
             disabled={isAnswered}
             className={cn(
-              "w-full p-3 border rounded-lg bg-[var(--background)] text-[var(--foreground)] border-[var(--card-border)]",
+              "w-full p-3 border rounded-lg bg-white text-black border-gray-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
               gameMode === "ai-quiz" ? "hidden" : "block",
             )}
             placeholder="Type your answer..."
@@ -337,7 +337,6 @@ const Game = () => {
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <Button
                 type="button"
-                variant="outline"
                 fullWidth
                 onClick={() => processAnswer("", activeGameData)}
               >
@@ -362,7 +361,7 @@ const Game = () => {
         )}
         <ResultDisplay type={result.type} message={result.message} />
         {funFact && (
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-zinc-900 rounded-lg text-sm text-center italic border border-[var(--card-border)]">
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-black rounded-lg text-sm text-center italic border border-gray-200 dark:border-neutral-800">
             {funFact}
           </div>
         )}
@@ -410,7 +409,7 @@ const Game = () => {
         </Button>
         <CardTitle
           as="h3"
-          className="text-center pt-4 border-t border-[var(--card-border)] flex items-center justify-center gap-2"
+          className="text-center pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-center gap-2"
         >
           AI-Generated Quizzes
           <ToolTip text="Trivia is based on historical data available up to January 2025." />
@@ -445,14 +444,14 @@ const Game = () => {
 
   const GameWrapper = () => {
     const cardBase =
-      "max-w-xl mx-auto shadow-xl bg-[var(--background)] text-[var(--foreground)] border-2 border-[var(--card-border)]";
+      "max-w-xl mx-auto shadow-xl bg-white dark:bg-black text-neutral-900 dark:text-white border-2 border-gray-200 dark:border-neutral-800";
 
     // 1. Loading State
     if (gameMode === "ai-quiz" && isLoadingAiQuiz) {
       return (
         <Card className={cardBase}>
           <CardContent>
-            <div className="flex flex-col justify-center items-center py-12 min-h-[300px]">
+            <div className="flex flex-col justify-center items-center py-12 min-h-75">
               <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4"></div>
               <p>Generating your quiz...</p>
             </div>
@@ -466,7 +465,7 @@ const Game = () => {
       return (
         <Card className={cardBase}>
           <CardContent>
-            <div className="flex flex-col justify-center items-center py-12 min-h-[300px] text-center">
+            <div className="flex flex-col justify-center items-center py-12 min-h-75 text-center">
               <div className="text-red-500 mb-4 text-5xl">⚠️</div>
               <CardTitle as="h3" className="mb-2 text-xl font-bold">
                 AI Quizzes Currently Unavailable

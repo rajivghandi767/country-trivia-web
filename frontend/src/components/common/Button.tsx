@@ -29,14 +29,14 @@ const Button = ({
 
   const variantStyles = {
     primary:
-      "bg-slate-900 dark:bg-white text-white dark:text-black hover:bg-slate-800 dark:hover:bg-gray-100 focus:ring-slate-400 dark:focus:ring-gray-400",
+      "bg-black dark:bg-white text-white dark:text-black hover:bg-neutral-800 dark:hover:bg-gray-200 focus:ring-neutral-400 dark:focus:ring-gray-400",
     secondary:
-      "bg-slate-100 dark:bg-zinc-800 text-slate-900 dark:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 focus:ring-slate-300 dark:focus:ring-zinc-700",
+      "bg-gray-100 dark:bg-neutral-900 text-black dark:text-white hover:bg-gray-200 dark:hover:bg-neutral-800 focus:ring-gray-300 dark:focus:ring-neutral-700",
     outline:
-      "border-2 border-slate-200 dark:border-zinc-800 bg-transparent text-slate-900 dark:text-white hover:bg-slate-50 dark:hover:bg-zinc-900 focus:ring-slate-200 dark:focus:ring-zinc-800",
+      "border-2 border-gray-200 dark:border-neutral-800 bg-transparent text-black dark:text-white hover:border-black dark:hover:border-white focus:ring-gray-200 dark:focus:ring-neutral-800",
     ghost:
-      "text-slate-900 dark:text-white hover:bg-slate-100 dark:hover:bg-zinc-900 focus:ring-slate-100 dark:focus:ring-zinc-900",
-    link: "text-slate-900 dark:text-white hover:underline underline-offset-4 focus:ring-slate-100 dark:focus:ring-zinc-900",
+      "text-black dark:text-white hover:bg-gray-100 dark:hover:bg-neutral-900 focus:ring-gray-100 dark:focus:ring-neutral-900",
+    link: "text-black dark:text-white hover:underline underline-offset-4 focus:ring-gray-100 dark:focus:ring-neutral-900",
   };
 
   const sizeStyles = {

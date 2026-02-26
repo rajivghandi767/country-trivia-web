@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import apiService from "@/api/apiService";
 import { BugReportPayload } from "@/types";
 import { Button } from "./Button";
@@ -51,7 +51,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
-      <div className="bg-[var(--background)] text-[var(--foreground)] border border-[var(--card-border)] rounded-lg p-6 w-full max-w-md shadow-2xl relative">
+      {/* AMOLED Black/White */}
+      <div className="bg-white dark:bg-black text-neutral-900 dark:text-white border border-gray-200 dark:border-neutral-800 rounded-lg p-6 w-full max-w-md shadow-2xl relative">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 opacity-50 hover:opacity-100 transition-opacity"
@@ -72,12 +73,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <label className="block text-sm font-medium mb-1 opacity-80">
                 What's wrong?
               </label>
+              {/* Forced White Input */}
               <select
                 value={issueType}
                 onChange={(e) =>
                   setIssueType(e.target.value as BugReportPayload["issue_type"])
                 }
-                className="w-full rounded-md border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
+                className="w-full rounded-md border border-gray-300 bg-white text-black p-2.5 focus:outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
               >
                 <option value="fact_error">The fact or answer is wrong</option>
                 <option value="typo">Typo or grammar mistake</option>
@@ -90,13 +92,14 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <label className="block text-sm font-medium mb-1 opacity-80">
                 Details
               </label>
+              {/* Forced White Input */}
               <textarea
                 required
                 rows={3}
                 placeholder="What should it say instead?"
                 value={userNote}
                 onChange={(e) => setUserNote(e.target.value)}
-                className="w-full rounded-md border border-[var(--card-border)] bg-[var(--background)] text-[var(--foreground)] p-2.5 focus:ring-2 focus:ring-blue-500 outline-none resize-none"
+                className="w-full rounded-md border border-gray-300 bg-white text-black p-2.5 focus:outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 resize-none"
               />
             </div>
 

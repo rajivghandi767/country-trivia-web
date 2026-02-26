@@ -2,7 +2,7 @@ const Footer = () => {
   const currentYear = new Date().getFullYear();
 
   return (
-    <footer className="py-6 mt-6 border-t border-gray-200 dark:border-gray-800">
+    <footer className="py-6 mt-6 border-t border-gray-200 dark:border-neutral-800 text-black dark:text-neutral-400">
       <div className="max-w-4xl mx-auto px-4">
         <div className="flex flex-col items-center">
           <div className="text-center">
@@ -14,7 +14,7 @@ const Footer = () => {
                 href="https://rajivwallace.com"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="hover:underline"
+                className="hover:text-black dark:hover:text-white transition-colors hover:underline"
               >
                 Go to my Portfolio Website ➡️
               </a>
