@@ -21,6 +21,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'trivia',
+    'health_check',
 ]
 
 MIDDLEWARE = [
