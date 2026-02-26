@@ -12,7 +12,7 @@ const Card = ({ children, className, onClick, hover = true }: CardProps) => {
   return (
     <div
       className={cn(
-        "bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border-2 border-black dark:border-gray-800",
+        "bg-white dark:bg-black rounded-lg shadow-md border-2 border-gray-200 dark:border-neutral-800",
         hover && "transition-all duration-300 hover:shadow-lg",
         onClick && "cursor-pointer",
         className,
@@ -103,9 +103,7 @@ interface CardContentProps {
 
 const CardContent = ({ children, className }: CardContentProps) => {
   return (
-    <div className={cn("p-4 flex flex-col flex-grow", className)}>
-      {children}
-    </div>
+    <div className={cn("p-4 flex flex-col grow", className)}>{children}</div>
   );
 };
 
@@ -120,7 +118,7 @@ const CardTitle = ({ children, className, as = "h3" }: CardTitleProps) => {
   return (
     <Component
       className={cn(
-        "font-semibold text-transparent bg-clip-text bg-gradient-to-r from-black to-gray-800 dark:from-white dark:to-gray-300",
+        "font-semibold text-transparent bg-clip-text bg-linear-to-r from-black to-gray-800 dark:from-white dark:to-gray-300",
         className,
       )}
     >
@@ -151,7 +149,7 @@ const CardFooter = ({ children, className }: CardFooterProps) => {
   return (
     <div
       className={cn(
-        "mt-auto pt-4 border-t border-black dark:border-gray-800 flex justify-between items-center",
+        "mt-auto pt-4 border-t border-gray-200 dark:border-neutral-800 flex justify-between items-center",
         className,
       )}
     >
