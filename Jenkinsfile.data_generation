@@ -1,10 +1,10 @@
 pipeline {
     agent any
 
-    // 1. Scheduled Trigger (03:45 AM ET Daily - avoids Watchtower and quota resets)
+    // 1. Scheduled Trigger (04:00 AM ET Daily - avoids Watchtower and quota resets)
     triggers {
         cron('''TZ=America/New_York
-45 3 * * *''')
+0 4 * * *''')
     }
 
     environment {
