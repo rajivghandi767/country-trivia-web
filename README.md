@@ -142,4 +142,4 @@ Distributed under the MIT License. See `LICENSE` for more information.
 **Rajiv Wallace** - [LinkedIn](https://www.linkedin.com/in/rajiv-wallace)
 
 - GitHub: [@rajivghandi767](https://github.com/rajivghandi767)
-- Email: rajivghandi972@gmail.com
+- Email: dev@rajivwallace.com
