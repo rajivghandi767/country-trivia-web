@@ -1,96 +1,97 @@
 @import "tailwindcss";
+@plugin "@tailwindcss/typography";
 
-/* Tailwind v4 custom variant for the .dark class */
 @custom-variant dark (&:where(.dark, .dark *));
 
-body {
-  /* Inherits bg and text colors from the App.tsx wrapper, so we only need font & transitions here */
-  font-family:
+/* =========================================
+   1. DESIGN TOKENS
+========================================= */
+@theme {
+  --font-sans:
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
-  transition:
-    background-color 0.2s ease,
-    color 0.2s ease;
+
+  /* These automatically generate classes like text-brand-light, bg-brand-light, etc. */
+  --color-brand-light: var(--color-neutral-900);
+  --color-brand-dark: var(--color-white);
+
+  --color-bg-light: var(--color-white);
+  --color-bg-dark: var(--color-black);
 }
 
-/* Global Link Styles */
-a:not([class]) {
-  @apply text-neutral-600 dark:text-neutral-400 transition-all duration-200;
-}
-
-a:not([class]):hover {
-  @apply text-black dark:text-white underline;
-}
-
-/* Animations */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
+/* =========================================
+   2. GLOBAL BASE STYLES
+========================================= */
+@layer base {
+  body {
+    background-color: var(--color-bg-light);
+    color: var(--color-brand-light);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+    scroll-behavior: smooth;
   }
-  to {
-    opacity: 1;
+
+  .dark body {
+    background-color: var(--color-bg-dark);
+    color: var(--color-brand-dark);
+  }
+
+  /* Raw CSS for universal links, completely removing @apply */
+  a:not([class]) {
+    color: var(--color-neutral-600);
+    transition-property: color, text-decoration-color;
+    transition-duration: 200ms;
+  }
+
+  .dark a:not([class]) {
+    color: var(--color-neutral-400);
+  }
+
+  a:not([class]):hover {
+    color: var(--color-brand-light);
+    text-decoration-line: underline;
+  }
+
+  .dark a:not([class]):hover {
+    color: var(--color-brand-dark);
   }
 }
 
-@keyframes fadeUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
+/* =========================================
+   3. UNIVERSAL ANIMATIONS
+========================================= */
+@theme {
+  --animate-fade-in: fadeIn 0.5s ease-in-out;
+  --animate-fade-up: fadeUp 0.5s ease-out;
+  --animate-scale-in: scaleIn 0.3s ease-out;
+
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+    }
+    to {
+      opacity: 1;
+    }
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  @keyframes fadeUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
-}
-
-@keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
   }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.5s ease-in-out;
-}
-.animate-fade-up {
-  animation: fadeUp 0.5s ease-out;
-}
-.animate-scale-in {
-  animation: scaleIn 0.3s ease-out;
-}
-
-/* Component Utility Classes */
-.bg-card {
-  @apply bg-white dark:bg-black;
-}
-
-.text-card-foreground {
-  @apply text-neutral-900 dark:text-white;
-}
-
-.border-default {
-  @apply border-gray-200 dark:border-neutral-800;
-}
-
-.hover-scale {
-  @apply transition-transform duration-300 hover:scale-[1.02];
-}
-
-/* Gradient Text logic used in CardTitle components */
-.text-gradient {
-  @apply bg-gradient-to-r from-black to-gray-600 dark:from-white dark:to-gray-400 bg-clip-text text-transparent;
-}
-
-/* Button Element Consistency (AMOLED compliant) */
-.btn-primary {
-  @apply bg-black text-white hover:bg-neutral-800 dark:bg-white dark:text-black dark:hover:bg-gray-200 transition-colors;
-}
-
-.btn-outline {
-  @apply bg-transparent border-2 border-gray-200 dark:border-neutral-800 text-neutral-900 dark:text-white hover:border-black dark:hover:border-white transition-colors;
 }
