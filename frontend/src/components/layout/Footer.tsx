@@ -5,6 +5,14 @@ const Footer = () => {
     <footer className="py-6 mt-6 border-t border-gray-200 dark:border-neutral-800 text-black dark:text-neutral-400">
       <div className="max-w-4xl mx-auto px-4">
         <div className="flex flex-col items-center">
+          <div className="mb-2">
+            <a
+              href="mailto:dev@rajivwallace.com"
+              className="text-brand-light dark:text-brand-dark hover:underline text-sm font-medium transition-colors"
+            >
+              dev@rajivwallace.com
+            </a>
+          </div>
           <div className="text-center">
             <p className="text-sm">
               &copy; {currentYear} Rajiv Wallace🇩🇲. All rights reserved.

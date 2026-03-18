@@ -21,8 +21,8 @@ const Section = ({
         <div className="flex justify-center items-center mb-8">
           <h2
             className={cn(
-              "text-2xl font-semibold text-center text-transparent bg-clip-text bg-linear-to-r from-black to-gray-800 dark:from-white dark:to-gray-300 hover:from-gray-900 hover:to-gray-800 dark:hover:from-gray-200 dark:hover:to-gray-100 transition-all duration-200",
-              titleClassName
+              "text-2xl font-semibold text-center text-transparent bg-clip-text bg-gradient-to-r from-neutral-900 to-neutral-600 dark:from-white dark:to-neutral-400 transition-all duration-200",
+              titleClassName,
             )}
           >
             {title}

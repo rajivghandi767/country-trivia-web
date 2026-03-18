@@ -4,7 +4,7 @@ import Footer from "./components/layout/Footer";
 
 function App() {
   return (
-    <div className="min-h-screen m-auto font-mono flex flex-col bg-white dark:bg-black text-neutral-900 dark:text-white transition-colors duration-200">
+    <div className="min-h-screen bg-bg-light dark:bg-bg-dark flex flex-col font-sans text-brand-light dark:text-brand-dark transition-colors duration-200">
       <Header />
       <main className="container mx-auto p-4 grow">
         <Game />

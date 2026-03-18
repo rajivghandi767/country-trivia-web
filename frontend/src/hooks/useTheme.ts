@@ -29,6 +29,7 @@ export function useTheme() {
       localStorage.setItem("theme", "light");
     }
 
+    // Update mobile browser top-bar color
     let metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (!metaThemeColor) {
       metaThemeColor = document.createElement('meta');

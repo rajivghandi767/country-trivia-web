@@ -50,9 +50,8 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4">
-      {/* AMOLED Black/White */}
-      <div className="bg-white dark:bg-black text-neutral-900 dark:text-white border border-gray-200 dark:border-neutral-800 rounded-lg p-6 w-full max-w-md shadow-2xl relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 transition-opacity">
+      <div className="bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark border border-gray-200 dark:border-neutral-800 rounded-xl p-6 w-full max-w-md shadow-2xl relative transition-colors duration-200">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 opacity-50 hover:opacity-100 transition-opacity"
@@ -64,22 +63,21 @@ export const ReportModal: React.FC<ReportModalProps> = ({
         <h2 className="text-xl font-bold mb-4">Report an Issue</h2>
 
         {success ? (
-          <div className="text-green-500 font-medium text-center py-6">
+          <div className="text-emerald-600 dark:text-emerald-400 font-medium text-center py-6 animate-fade-in">
             Thanks for the heads up! We'll look into it.
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
             <div>
               <label className="block text-sm font-medium mb-1 opacity-80">
                 What's wrong?
               </label>
-              {/* Forced White Input */}
               <select
                 value={issueType}
                 onChange={(e) =>
                   setIssueType(e.target.value as BugReportPayload["issue_type"])
                 }
-                className="w-full rounded-md border border-gray-300 bg-white text-black p-2.5 focus:outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500"
+                className="w-full rounded-md border border-gray-300 dark:border-neutral-700 bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark p-2.5 focus:outline-none focus:border-brand-light dark:focus:border-brand-dark focus:ring-1 focus:ring-brand-light dark:focus:ring-brand-dark transition-colors"
               >
                 <option value="fact_error">The fact or answer is wrong</option>
                 <option value="typo">Typo or grammar mistake</option>
@@ -92,14 +90,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
               <label className="block text-sm font-medium mb-1 opacity-80">
                 Details
               </label>
-              {/* Forced White Input */}
               <textarea
                 required
                 rows={3}
                 placeholder="What should it say instead?"
                 value={userNote}
                 onChange={(e) => setUserNote(e.target.value)}
-                className="w-full rounded-md border border-gray-300 bg-white text-black p-2.5 focus:outline-none focus:border-neutral-500 focus:ring-1 focus:ring-neutral-500 resize-none"
+                className="w-full rounded-md border border-gray-300 dark:border-neutral-700 bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark p-2.5 focus:outline-none focus:border-brand-light dark:focus:border-brand-dark focus:ring-1 focus:ring-brand-light dark:focus:ring-brand-dark resize-none transition-colors"
               />
             </div>
 
