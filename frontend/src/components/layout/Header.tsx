@@ -7,7 +7,7 @@ const ThemeToggleButton = () => {
 
   return (
     <button
-      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-900 transition-colors"
+      className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-neutral-900 text-brand-light dark:text-brand-dark transition-colors"
       onClick={toggleTheme}
       aria-label="Toggle dark mode"
     >
@@ -22,7 +22,7 @@ const ThemeToggleButton = () => {
 
 const Header = () => {
   return (
-    <div className="sticky top-0 z-50 bg-white dark:bg-black border-b border-gray-200 dark:border-neutral-800">
+    <div className="sticky top-0 z-50 bg-bg-light dark:bg-bg-dark border-b border-gray-200 dark:border-neutral-800 transition-colors duration-200">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between min-h-15">
         {/* LEFT ZONE: Fixed w-24 pillar for symmetry */}
         <div className="flex items-center justify-start w-24">
@@ -31,7 +31,7 @@ const Header = () => {
 
         {/* CENTER ZONE: flex-1 ensures it wraps naturally instead of truncating */}
         <div className="text-center flex-1 px-2">
-          <h1 className="text-lg md:text-2xl font-bold leading-tight text-black dark:text-white">
+          <h1 className="text-lg md:text-2xl font-bold leading-tight text-brand-light dark:text-brand-dark">
             Country Trivia by Rajiv Wallace
           </h1>
         </div>

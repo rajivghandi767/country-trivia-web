@@ -182,7 +182,6 @@ const Game = () => {
 
       const aiResponse = answerResult.data as AIAnswerResponse;
 
-      // Display the fully formatted response straight from the backend API
       if (aiResponse.is_correct) {
         setResult({ type: "correct", message: aiResponse.feedback_message });
         setScore((s) => s + (aiResponse.points_awarded || 1));
@@ -195,7 +194,6 @@ const Game = () => {
 
       if (factResult.data) setFunFact(factResult.data.fact);
     } catch (err) {
-      // Cleaned up: Only triggers if the Django backend is totally unreachable or returns a 500 error
       setResult({
         type: "incorrect",
         message: "Error connecting to the grading server. Please try again.",
@@ -230,11 +228,11 @@ const Game = () => {
             Game Over!
           </CardTitle>
           <div className="text-center mb-6">
-            <p className="text-2xl mb-2">
+            <p className="text-2xl mb-2 text-brand-light dark:text-brand-dark">
               Your final score is: {score} / {activeGameData.length}
             </p>
             {(gameMode === "capital" || gameMode === "country") && (
-              <p className="text-lg opacity-60">
+              <p className="text-lg opacity-60 text-brand-light dark:text-brand-dark">
                 High Score: {highScores[gameMode]}
               </p>
             )}
@@ -288,7 +286,7 @@ const Game = () => {
             Back to Main Menu
           </Button>
         </div>
-        <div className="flex justify-between items-center mb-4 text-sm opacity-60">
+        <div className="flex justify-between items-center mb-4 text-sm opacity-60 text-brand-light dark:text-brand-dark">
           <span className="font-semibold">Score: {score}</span>
           <span>
             Question: {currentIndex + 1} / {activeGameData.length}
@@ -327,7 +325,7 @@ const Game = () => {
             onChange={(e) => setUserAnswer(e.target.value)}
             disabled={isAnswered}
             className={cn(
-              "w-full p-3 border rounded-lg bg-white text-black border-gray-300 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500",
+              "w-full p-3 border rounded-lg bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark border-gray-300 dark:border-neutral-700 focus:outline-none focus:border-brand-light dark:focus:border-brand-dark focus:ring-1 focus:ring-brand-light dark:focus:ring-brand-dark transition-colors",
               gameMode === "ai-quiz" ? "hidden" : "block",
             )}
             placeholder="Type your answer..."
@@ -338,6 +336,7 @@ const Game = () => {
               <Button
                 type="button"
                 fullWidth
+                variant="secondary"
                 onClick={() => processAnswer("", activeGameData)}
               >
                 I don't know!🤷🏽
@@ -353,7 +352,7 @@ const Game = () => {
             type="button"
             size="lg"
             fullWidth
-            className="mt-4"
+            className="mt-4 animate-fade-in"
             onClick={() => handleNextQuestion(activeGameData)}
           >
             Next Question
@@ -361,16 +360,15 @@ const Game = () => {
         )}
         <ResultDisplay type={result.type} message={result.message} />
         {funFact && (
-          <div className="mt-4 p-3 bg-gray-50 dark:bg-black rounded-lg text-sm text-center italic border border-gray-200 dark:border-neutral-800">
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-neutral-900 rounded-lg text-sm text-center italic border border-gray-200 dark:border-neutral-800 text-brand-light dark:text-brand-dark animate-fade-in-up">
             {funFact}
           </div>
         )}
-        {/* Report Issue Toggle */}
         <div className="mt-4 text-center">
           <button
             type="button"
             onClick={() => setIsReportModalOpen(true)}
-            className="text-xs opacity-50 hover:opacity-100 underline transition-opacity duration-200"
+            className="text-xs text-brand-light dark:text-brand-dark opacity-50 hover:opacity-100 underline transition-opacity duration-200"
           >
             Report an issue with this question
           </button>
@@ -392,7 +390,7 @@ const Game = () => {
           disabled={!countries?.length}
         >
           <span>Guess the Capital </span>
-          <div className="text-xs font-normal opacity-60">
+          <div className="text-xs font-normal opacity-60 ml-2">
             (High Score: {highScores.capital})
           </div>
         </Button>
@@ -403,13 +401,13 @@ const Game = () => {
           disabled={!countries?.length}
         >
           <span>Guess the Country </span>
-          <div className="text-xs font-normal opacity-60">
+          <div className="text-xs font-normal opacity-60 ml-2">
             (High Score: {highScores.country})
           </div>
         </Button>
         <CardTitle
           as="h3"
-          className="text-center pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-center gap-2"
+          className="text-center pt-4 border-t border-gray-200 dark:border-neutral-800 flex items-center justify-center gap-2 mt-2"
         >
           AI-Generated Quizzes
           <ToolTip text="Trivia is based on historical data available up to January 2025." />
@@ -444,23 +442,23 @@ const Game = () => {
 
   const GameWrapper = () => {
     const cardBase =
-      "max-w-xl mx-auto shadow-xl bg-white dark:bg-black text-neutral-900 dark:text-white border-2 border-gray-200 dark:border-neutral-800";
+      "max-w-xl mx-auto shadow-xl bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark border-2 border-gray-200 dark:border-neutral-800 transition-colors duration-200";
 
-    // 1. Loading State
     if (gameMode === "ai-quiz" && isLoadingAiQuiz) {
       return (
         <Card className={cardBase}>
           <CardContent>
             <div className="flex flex-col justify-center items-center py-12 min-h-75">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-600 mb-4"></div>
-              <p>Generating your quiz...</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-light dark:border-brand-dark mb-4"></div>
+              <p className="text-brand-light dark:text-brand-dark font-medium animate-pulse">
+                Generating your quiz...
+              </p>
             </div>
           </CardContent>
         </Card>
       );
     }
 
-    // 2. Error State (When AI is down or rate-limited for quizzes)
     if (gameMode === "ai-quiz" && aiQuizError) {
       return (
         <Card className={cardBase}>
@@ -470,7 +468,7 @@ const Game = () => {
               <CardTitle as="h3" className="mb-2 text-xl font-bold">
                 AI Quizzes Currently Unavailable
               </CardTitle>
-              <p className="opacity-70 mb-6">
+              <p className="opacity-70 mb-6 text-brand-light dark:text-brand-dark">
                 The AI service is currently down or rate-limited. Please try
                 again later.
               </p>
@@ -489,7 +487,6 @@ const Game = () => {
       );
     }
 
-    // Extract context for the bug report based on game mode
     const currentQuestionContext = gameData[currentIndex];
     const reportCountryName =
       gameMode === "capital" || gameMode === "country"
@@ -500,7 +497,6 @@ const Game = () => {
         ? (currentQuestionContext as AIQuestion)?.id
         : undefined;
 
-    // 3. Normal Game State
     return (
       <>
         <Card className={cardBase}>
@@ -508,8 +504,6 @@ const Game = () => {
             ? renderModeSelection()
             : renderGameInterface(gameData.length ? gameData : countries || [])}
         </Card>
-
-        {/* NEW: Render the Modal */}
         <ReportModal
           isOpen={isReportModalOpen}
           onClose={() => setIsReportModalOpen(false)}

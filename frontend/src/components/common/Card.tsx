@@ -12,7 +12,7 @@ const Card = ({ children, className, onClick, hover = true }: CardProps) => {
   return (
     <div
       className={cn(
-        "bg-white dark:bg-black rounded-lg shadow-md border-2 border-gray-200 dark:border-neutral-800",
+        "bg-bg-light dark:bg-bg-dark rounded-lg shadow-md border-2 border-gray-200 dark:border-neutral-800 transition-colors duration-200",
         hover && "transition-all duration-300 hover:shadow-lg",
         onClick && "cursor-pointer",
         className,
@@ -61,13 +61,13 @@ const CardImage = ({
     return (
       <div
         className={cn(
-          "w-full overflow-hidden bg-gray-100 dark:bg-gray-900 flex items-center justify-center",
+          "w-full overflow-hidden bg-gray-100 dark:bg-neutral-900 flex items-center justify-center",
           aspectRatioClasses[aspectRatio],
           className,
         )}
       >
         {fallback || (
-          <div className="text-gray-500 dark:text-gray-600 font-mono text-sm">
+          <div className="text-gray-500 dark:text-gray-400 font-mono text-sm">
             Image Unavailable
           </div>
         )}
@@ -118,7 +118,7 @@ const CardTitle = ({ children, className, as = "h3" }: CardTitleProps) => {
   return (
     <Component
       className={cn(
-        "font-semibold text-transparent bg-clip-text bg-linear-to-r from-black to-gray-800 dark:from-white dark:to-gray-300",
+        "font-semibold text-transparent bg-clip-text bg-gradient-to-r from-neutral-900 to-neutral-600 dark:from-white dark:to-neutral-400",
         className,
       )}
     >
@@ -134,7 +134,9 @@ interface CardDescriptionProps {
 
 const CardDescription = ({ children, className }: CardDescriptionProps) => {
   return (
-    <div className={cn("text-sm text-black dark:text-gray-300", className)}>
+    <div
+      className={cn("text-sm text-brand-light dark:text-gray-300", className)}
+    >
       {children}
     </div>
   );

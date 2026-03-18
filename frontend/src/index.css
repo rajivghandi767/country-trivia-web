@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@plugin "@tailwindcss/typography";
 
 @custom-variant dark (&:where(.dark, .dark *));
 
@@ -11,57 +10,14 @@
     ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono",
     "Courier New", monospace;
 
-  /* These automatically generate classes like text-brand-light, bg-brand-light, etc. */
+  /* Semantic Color Variables */
   --color-brand-light: var(--color-neutral-900);
   --color-brand-dark: var(--color-white);
 
   --color-bg-light: var(--color-white);
   --color-bg-dark: var(--color-black);
-}
 
-/* =========================================
-   2. GLOBAL BASE STYLES
-========================================= */
-@layer base {
-  body {
-    background-color: var(--color-bg-light);
-    color: var(--color-brand-light);
-    transition:
-      background-color 0.2s ease,
-      color 0.2s ease;
-    scroll-behavior: smooth;
-  }
-
-  .dark body {
-    background-color: var(--color-bg-dark);
-    color: var(--color-brand-dark);
-  }
-
-  /* Raw CSS for universal links, completely removing @apply */
-  a:not([class]) {
-    color: var(--color-neutral-600);
-    transition-property: color, text-decoration-color;
-    transition-duration: 200ms;
-  }
-
-  .dark a:not([class]) {
-    color: var(--color-neutral-400);
-  }
-
-  a:not([class]):hover {
-    color: var(--color-brand-light);
-    text-decoration-line: underline;
-  }
-
-  .dark a:not([class]):hover {
-    color: var(--color-brand-dark);
-  }
-}
-
-/* =========================================
-   3. UNIVERSAL ANIMATIONS
-========================================= */
-@theme {
+  /* Centralized Animations */
   --animate-fade-in: fadeIn 0.5s ease-in-out;
   --animate-fade-up: fadeUp 0.5s ease-out;
   --animate-scale-in: scaleIn 0.3s ease-out;
@@ -93,5 +49,45 @@
       opacity: 1;
       transform: scale(1);
     }
+  }
+}
+
+/* =========================================
+   2. GLOBAL BASE STYLES
+========================================= */
+@layer base {
+  body {
+    background-color: var(--color-bg-light);
+    color: var(--color-brand-light);
+    font-family: var(--font-sans);
+    transition:
+      background-color 0.2s ease,
+      color 0.2s ease;
+    scroll-behavior: smooth;
+  }
+
+  .dark body {
+    background-color: var(--color-bg-dark);
+    color: var(--color-brand-dark);
+  }
+
+  /* Universal Link Styles */
+  a:not([class]) {
+    color: var(--color-neutral-600);
+    transition-property: color, text-decoration-color;
+    transition-duration: 200ms;
+  }
+
+  .dark a:not([class]) {
+    color: var(--color-neutral-400);
+  }
+
+  a:not([class]):hover {
+    color: var(--color-brand-light);
+    text-decoration-line: underline;
+  }
+
+  .dark a:not([class]):hover {
+    color: var(--color-brand-dark);
   }
 }

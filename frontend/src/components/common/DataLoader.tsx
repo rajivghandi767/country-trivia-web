@@ -16,7 +16,7 @@ const DataLoader = <T,>({
   if (isLoading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-black dark:border-white"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-light dark:border-brand-dark"></div>
       </div>
     );
   }
@@ -32,7 +32,11 @@ const DataLoader = <T,>({
   }
 
   if (!data || data.length === 0) {
-    return <div className="text-center p-8">{emptyMessage}</div>;
+    return (
+      <div className="text-center p-8 text-brand-light dark:text-brand-dark">
+        {emptyMessage}
+      </div>
+    );
   }
 
   return <>{children(data)}</>;
