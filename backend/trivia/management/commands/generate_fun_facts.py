@@ -9,20 +9,28 @@ class Command(BaseCommand):
     help = 'Generates fun facts using Gemini AI and saves them to the database'
 
     def handle(self, *args, **kwargs):
-        # 1. Target 25 countries that have fewer than 10 facts.
-        countries_needing_facts = Country.objects.annotate(
+        FACT_LIMIT = 25
+        BATCH_SIZE = 25
+
+        # 1. Prioritize countries that haven't reached the target limit
+        countries_to_process = Country.objects.annotate(
             fact_count=models.Count('fun_facts')
-        ).filter(fact_count__lt=10).order_by('fact_count')[:25]
+        ).filter(fact_count__lt=FACT_LIMIT).order_by('fact_count')[:BATCH_SIZE]
 
-        if not countries_needing_facts:
-            self.stdout.write(self.style.SUCCESS(
-                'All countries have reached the target number of fun facts!'))
-            return
+        # 2. Rolling Refresh: If all countries are full, pick a random batch to update
+        if not countries_to_process:
+            self.stdout.write(
+                f"♻️ All countries at capacity ({FACT_LIMIT}). Initiating rolling refresh...")
+            # Order by '?' picks random countries so the whole database refreshes evenly over time
+            countries_to_process = Country.objects.order_by('?')[:BATCH_SIZE]
+        else:
+            self.stdout.write(
+                f"📈 Filling stock. Target limit: {FACT_LIMIT} per country.")
 
-        country_names = [c.name for c in countries_needing_facts]
+        country_names = [c.name for c in countries_to_process]
         self.stdout.write(f"Generating facts for: {', '.join(country_names)}")
 
-        # 2. The Prompt
+        # 3. The Prompt
         prompt = f"""
         You are a trivia host. Generate one unique, lesser-known, and interesting "Did you know?" fun fact for each of the following countries: {json.dumps(country_names)}.
         The fact must be related to geography, history, science, football (soccer), or Formula 1.
@@ -33,14 +41,21 @@ class Command(BaseCommand):
         try:
             result_json = _generate_ai_json(prompt, temperature=0.8)
 
-            for country in countries_needing_facts:
+            for country in countries_to_process:
                 if country.name in result_json:
                     new_fact_text = result_json[country.name]
 
-                    # 3. FIX: Changed 'fact' to 'fact_text' in the filter
+                    # Deduplication check
                     if not CountryFunFact.objects.filter(country=country, fact_text=new_fact_text).exists():
 
-                        # FIX: Changed 'fact' to 'fact_text' and added our tracking fields
+                        # 4. Rotation Logic: Delete the oldest fact if at capacity
+                        if country.fun_facts.count() >= FACT_LIMIT:
+                            oldest_fact = country.fun_facts.order_by(
+                                'created_at').first()
+                            if oldest_fact:
+                                oldest_fact.delete()
+
+                        # Save the new fact
                         CountryFunFact.objects.create(
                             country=country,
                             fact_text=new_fact_text,

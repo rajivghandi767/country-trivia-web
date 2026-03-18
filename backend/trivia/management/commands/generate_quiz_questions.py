@@ -14,23 +14,38 @@ class Command(BaseCommand):
             "English Premier League"
         ]
 
+        STOCK_LIMIT = 500
+        BATCH_SIZE = 15
+
         for topic_name in core_topics:
-            # Add the defaults dictionary so Django knows what to name the new row!
             topic, _ = QuizTopic.objects.get_or_create(
                 name__iexact=topic_name,
                 defaults={'name': topic_name}
             )
 
-            # Skip if we already have a healthy pool for this topic
-            if topic.questions.count() >= 50:
-                self.stdout.write(
-                    f"⏭️ Skipping {topic_name}, already well-stocked.")
-                continue
+            current_count = topic.questions.count()
 
-            self.stdout.write(f"🚀 Generating batch for: {topic_name}")
+            # Rolling Refresh: If we are at or above the limit, delete the oldest batch
+            if current_count >= STOCK_LIMIT:
+                self.stdout.write(
+                    f"♻️ Stock limit reached ({STOCK_LIMIT}) for {topic_name}. Rotating oldest {BATCH_SIZE} questions...")
+
+                # Fetch the IDs of the oldest questions
+                oldest_questions = topic.questions.order_by(
+                    'created_at').values_list('id', flat=True)[:BATCH_SIZE]
+
+                # Delete them to make room for the new batch
+                QuizQuestion.objects.filter(
+                    id__in=list(oldest_questions)).delete()
+            else:
+                self.stdout.write(
+                    f"📈 {topic_name} stock at {current_count}/{STOCK_LIMIT}. Generating more...")
+
+            self.stdout.write(
+                f"🚀 Generating batch of {BATCH_SIZE} for: {topic_name}")
 
             prompt = f"""
-            Generate a JSON list of EXACTLY 15 unique multiple-choice trivia questions for {topic_name}.
+            Generate a JSON list of EXACTLY {BATCH_SIZE} unique multiple-choice trivia questions for {topic_name}.
             STRICT QUALITY REQUIREMENTS:
             1. DIVERSITY: Mix easy, medium, and challenging questions. 
             2. FACT CHECK: Use historical/static data (Knowledge Cutoff Jan 2025).
@@ -41,7 +56,6 @@ class Command(BaseCommand):
             """
 
             try:
-
                 quiz_data = _generate_ai_json(
                     prompt, temperature=0.7, max_tokens=6000)
 
