@@ -1,143 +1,63 @@
+@Library('homelab-library') _
+
 pipeline {
     agent any
 
-    // 1. Scheduled Trigger (04:00 AM ET Daily - avoids Watchtower and quota resets)
     triggers {
         cron('''TZ=America/New_York
 0 4 * * *''')
     }
 
     environment {
-        // --- CONFIGURATION ---
+        APP_NAME         = "Trivia Web App"
         SSH_CRED_ID      = "raspberry-pi-ssh"
-        VAULT_CRED_ID    = "vault-trivia-approle"
-        VAULT_ADDR       = 'http://vault:8200'
         
         DEPLOY_USER = "dietpi"
         DEPLOY_HOST = "10.100.10.5"
         DEPLOY_DIR  = "/opt/homelab-iac/services/apps/country-trivia-web"
-
-        // --- NOTIFICATIONS ---
-        JENKINS_DISCORD_WEBHOOK = credentials('jenkins-discord-webhook')
     }
 
     stages {
-        // --- STAGE 1: CHECK VAULT STATUS ---
-        stage('🔍 Check Status') {
+        stage('🔍 Vault Status & Unseal') {
             steps {
                 script {
-                    echo "Checking Vault Seal Status..."
-                    def statusJson = sh(script: "curl -s ${VAULT_ADDR}/v1/sys/seal-status || wget -qO- ${VAULT_ADDR}/v1/sys/seal-status", returnStdout: true).trim()
-                    
-                    if (statusJson.contains('"sealed":false')) {
-                        echo "✅ Vault is ALREADY UNSEALED. No action required."
-                        env.VAULT_STATUS = "OPEN" 
-                    } else {
-                        echo "🔒 Vault is SEALED. Initiating unseal sequence..."
-                        env.VAULT_STATUS = "SEALED"
-                    }
+                    unsealVault()
                 }
             }
         }
 
-        // --- STAGE 2: INJECT KEYS (ONLY IF SEALED) ---
-        stage('🗝️ Inject Keys') {
-            when {
-                environment name: 'VAULT_STATUS', value: 'SEALED'
-            }
-            steps {
-                withCredentials([
-                    string(credentialsId: 'VAULT_UNSEAL_KEY_1', variable: 'KEY1'),
-                    string(credentialsId: 'VAULT_UNSEAL_KEY_2', variable: 'KEY2'),
-                    string(credentialsId: 'VAULT_UNSEAL_KEY_3', variable: 'KEY3')
-                ]) {
-                    script {
-                        for (int i = 1; i <= 3; i++) {
-                            echo "🚀 Injecting Key #${i}..."
-                            def currentKeyVar = "\$KEY${i}"
-                            
-                            def output = sh(script: """
-                                if command -v curl >/dev/null 2>&1; then
-                                    curl -s -X POST -H "Content-Type: application/json" -d "{\\"key\\": \\"${currentKeyVar}\\"}" ${VAULT_ADDR}/v1/sys/unseal
-                                else
-                                    wget -qO- --post-data "{\\"key\\": \\"${currentKeyVar}\\"}" --header="Content-Type: application/json" ${VAULT_ADDR}/v1/sys/unseal
-                                fi
-                            """, returnStdout: true).trim()
-                            
-                            if (output.contains('"sealed":false')) {
-                                echo "🎉 SUCCESS: Vault has been UNSEALED!"
-                                return
-                            } else {
-                                echo "⚠️ Key accepted. Still sealed. Waiting for next key..."
-                            }
-                        }
-                        error("⛔ All keys used but Vault is still sealed.")
-                    }
-                }
-            }
-        }
-
-        // --- STAGE 3: GENERATE DATA ---
         stage('🤖 Generate AI Data') {
             steps {
                 sshagent([SSH_CRED_ID]) {
                     script {
-                        // Pre-flight Security
-                        sh """
-                            mkdir -p ~/.ssh
-                            ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true
-                        """
+                        sh "mkdir -p ~/.ssh && ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true"
 
-                        // Execute Fun Facts generation
                         echo "🚀 Triggering AI Fact Generation..."
-                        def factsOutput = sh(script: """
-                            ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
-                                cd ${DEPLOY_DIR}
-                                docker compose exec -T trivia-backend python manage.py generate_fun_facts
-                            "
-                        """, returnStdout: true).trim()
-                        echo "🔍 Facts Output: \n${factsOutput}"
+                        sh "ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_fun_facts'"
 
-                        // Execute Quiz Questions generation
                         echo "🚀 Triggering AI Quiz Question Generation..."
-                        def quizOutput = sh(script: """
-                            ssh ${DEPLOY_USER}@${DEPLOY_HOST} "
-                                cd ${DEPLOY_DIR}
-                                docker compose exec -T trivia-backend python manage.py generate_quiz_questions
-                            "
-                        """, returnStdout: true).trim()
-                        echo "🔍 Quiz Output: \n${quizOutput}"
+                        sh "ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_quiz_questions'"
                     }
                 }
             }
         }
     }
 
-    // --- NOTIFICATIONS ---
     post {
         success {
             script {
                 def timestamp = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
-                def successMessage = """
-:brain: **Trivia Data Updated**
-Successfully generated new AI fun facts and quiz questions for the database pools.
-
-:clock4: **Time:** ${timestamp}
-"""
-                discordSend description: successMessage, result: 'SUCCESS', title: "✅ AI Data Generation Complete", webhookURL: env.JENKINS_DISCORD_WEBHOOK
+                def successMessage = ":brain: **Trivia Data Updated**\nSuccessfully generated new AI fun facts and quiz questions for the database pools.\n\n:clock4: **Time:** ${timestamp}"
+                
+                notifyDiscord("✅ AI Data Generation Complete", successMessage, 3066993)
             }
         }
         failure {
             script {
                 def failTime = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
-                def failMessage = """
-:x: **Trivia Data Generation Failed**
-**:warning: Error Details:**
-Check Jenkins logs for build #${BUILD_NUMBER}. The scheduled AI task did not complete successfully.
-
-:clock4: **Time:** ${failTime}
-"""
-                discordSend description: failMessage, result: 'FAILURE', title: "🚨 AI Data Generation Alert", webhookURL: env.JENKINS_DISCORD_WEBHOOK
+                def failMessage = ":x: **Trivia Data Generation Failed**\n**:warning: Error Details:**\nCheck Jenkins logs for build #${BUILD_NUMBER}.\nThe scheduled AI task did not complete successfully.\n\n:clock4: **Time:** ${failTime}"
+                
+                notifyDiscord("🚨 AI Data Generation Alert", failMessage, 15158332)
             }
         }
     }
