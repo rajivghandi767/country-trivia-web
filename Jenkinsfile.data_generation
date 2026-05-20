@@ -9,12 +9,15 @@ pipeline {
     }
 
     environment {
-        APP_NAME         = "Trivia Web App"
-        SSH_CRED_ID      = "raspberry-pi-ssh"
+        APP_NAME              = "Country Trivia Web App"
+        SSH_CRED_ID           = "raspberry-pi-ssh"
         
-        DEPLOY_USER = "dietpi"
-        DEPLOY_HOST = "10.100.10.5"
-        DEPLOY_DIR  = "/opt/homelab-iac/services/apps/country-trivia-web"
+        DEPLOY_USER           = "dietpi"
+        DEPLOY_HOST           = "10.100.10.5"
+        DEPLOY_DIR            = "/opt/homelab-iac/services/apps/country-trivia-web"
+
+        DISCORD_SUCCESS_COLOR = "3066993"
+        DISCORD_FAIL_COLOR    = "15158332"
     }
 
     stages {
@@ -28,15 +31,15 @@ pipeline {
 
         stage('🤖 Generate AI Data') {
             steps {
-                sshagent([SSH_CRED_ID]) {
+                sshagent([env.SSH_CRED_ID]) {
                     script {
-                        sh "mkdir -p ~/.ssh && ssh-keyscan -H ${DEPLOY_HOST} >> ~/.ssh/known_hosts || true"
+                        sh "mkdir -p ~/.ssh && ssh-keyscan -H ${env.DEPLOY_HOST} >> ~/.ssh/known_hosts || true"
 
                         echo "🚀 Triggering AI Fact Generation..."
-                        sh "ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_fun_facts'"
+                        sh "ssh ${env.DEPLOY_USER}@${env.DEPLOY_HOST} 'cd ${env.DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_fun_facts'"
 
                         echo "🚀 Triggering AI Quiz Question Generation..."
-                        sh "ssh ${DEPLOY_USER}@${DEPLOY_HOST} 'cd ${DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_quiz_questions'"
+                        sh "ssh ${env.DEPLOY_USER}@${env.DEPLOY_HOST} 'cd ${env.DEPLOY_DIR} && docker compose exec -T trivia-backend python manage.py generate_quiz_questions'"
                     }
                 }
             }
@@ -49,15 +52,15 @@ pipeline {
                 def timestamp = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
                 def successMessage = ":brain: **Trivia Data Updated**\nSuccessfully generated new AI fun facts and quiz questions for the database pools.\n\n:clock4: **Time:** ${timestamp}"
                 
-                notifyDiscord("✅ AI Data Generation Complete", successMessage, 3066993)
+                notifyDiscord("✅ AI Data Generation Complete", successMessage, env.DISCORD_SUCCESS_COLOR.toInteger())
             }
         }
         failure {
             script {
                 def failTime = sh(returnStdout: true, script: "TZ='America/New_York' date +'%a, %d %b %Y at %H:%M %Z'").trim()
-                def failMessage = ":x: **Trivia Data Generation Failed**\n**:warning: Error Details:**\nCheck Jenkins logs for build #${BUILD_NUMBER}.\nThe scheduled AI task did not complete successfully.\n\n:clock4: **Time:** ${failTime}"
+                def failMessage = ":x: **Trivia Data Generation Failed**\n**:warning: Error Details:**\nCheck Jenkins logs for build #${env.BUILD_NUMBER}.\nThe scheduled AI task did not complete successfully.\n\n:clock4: **Time:** ${failTime}"
                 
-                notifyDiscord("🚨 AI Data Generation Alert", failMessage, 15158332)
+                notifyDiscord("🚨 AI Data Generation Alert", failMessage, env.DISCORD_FAIL_COLOR.toInteger())
             }
         }
     }
