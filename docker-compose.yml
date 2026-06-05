@@ -1,96 +1,83 @@
 services:
-  # DB Migration & Static Files Collection
-  trivia-backend-init:
-    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
-    container_name: trivia-backend-init
-    user: root
+  # -----------------------------------------
+  # Database Layer
+  # -----------------------------------------
+  trivia-local-db:
+    image: postgres:18-alpine
+    container_name: trivia-local-db
+    restart: unless-stopped
+    env_file: .env.example
     networks:
-      - trivia
-      - database
-    env_file: .env
+      - trivia-local
+    ports:
+      - "5432:5432"
     volumes:
-      - trivia_static:/home/backend/django/staticfiles
+      - trivia-local-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U trivia-prod -d postgres-core"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # -----------------------------------------
+  # Caching Layer
+  # -----------------------------------------
+  trivia-local-redis:
+    image: redis:7-alpine
+    container_name: trivia-local-redis
+    restart: unless-stopped
+    networks:
+      - trivia-local
+    ports:
+      - "6379:6379"
+
+  # -----------------------------------------
+  # Django Backend (Smart Server)
+  # -----------------------------------------
+  trivia-local-backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: trivia-local-backend
+    env_file: .env.example
+    networks:
+      - trivia-local
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      trivia-local-db:
+        condition: service_healthy
+      trivia-local-redis:
+        condition: service_started
     command: >
-      sh -c "
-        echo 'Waiting for postgres-core...' &&
-        until python -c 'import socket,os; s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(2); s.connect((os.environ[\"POSTGRES_HOST\"], 5432)); s.close()'; do
-          echo 'Database not ready... waiting 2s';
-          sleep 2;
-        done &&
-        echo 'Database is ready!' &&
-        python manage.py migrate --noinput && 
-             python manage.py createcachetable &&
-             python manage.py load_country_data &&
-             python manage.py collectstatic --noinput"
+      sh -c "python manage.py migrate && 
+             python manage.py createcachetable && 
+             python manage.py load_country_data && 
+             python manage.py runserver 0.0.0.0:8000"
 
-  # Trivia Backend - Django
-  trivia-backend:
-    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
-    container_name: trivia-backend
-    restart: unless-stopped
+  # -----------------------------------------
+  # React Frontend (Dumb Client)
+  # -----------------------------------------
+  trivia-local-frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: trivia-local-frontend
+    env_file: .env.example
     networks:
-      - trivia
-      - database
-    depends_on:
-      trivia-backend-init:
-        condition: service_completed_successfully
-    env_file: .env
+      - trivia-local
+    ports:
+      - "5173:5173"
     volumes:
-      - trivia_static:/home/backend/django/staticfiles
-      - trivia_logs:/home/backend/django/logs
-    user: "backend:backend_group"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-
-  trivia-frontend:
-    image: ghcr.io/rajivghandi767/trivia-frontend:${IMAGE_TAG:-latest}
-    container_name: trivia-frontend
-    restart: unless-stopped
-    networks:
-      - core
-      - trivia
+      - ./frontend:/app
+      - /app/node_modules
     depends_on:
-      trivia-backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Single unified nginx service
-  trivia-nginx:
-    image: ghcr.io/rajivghandi767/trivia-nginx:${IMAGE_TAG:-latest}
-    container_name: trivia-nginx
-    restart: unless-stopped
-    networks:
-      - core
-      - trivia
-    depends_on:
-      trivia-backend:
-        condition: service_healthy
-      trivia-frontend:
-        condition: service_healthy
-    volumes:
-      - trivia_static:/usr/share/nginx/html/static:ro
-      - trivia_logs:/var/log/nginx
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/nginx-status/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+      - trivia-local-backend
 
 volumes:
-  trivia_static:
-  trivia_logs:
+  trivia-local-db-data:
 
 networks:
-  core:
-    external: true
-  database:
-    external: true
-  trivia:
+  trivia-local:

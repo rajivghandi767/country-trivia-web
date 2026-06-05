@@ -115,6 +115,7 @@ class AIQuizViewSet(viewsets.ViewSet):
 
 
 class ReportedIssueViewSet(viewsets.ModelViewSet):
+    http_method_names = ['get', 'post', 'head', 'options']
     """
     Handles the user bug reporting system.
     """
