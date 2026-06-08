@@ -1,4 +1,7 @@
+import { usePortfolioData } from "../../hooks/usePortfolioData";
+
 const Footer = () => {
+  const { info } = usePortfolioData();
   const currentYear = new Date().getFullYear();
 
   return (
@@ -7,10 +10,10 @@ const Footer = () => {
         <div className="flex flex-col items-center">
           <div className="mb-2">
             <a
-              href="mailto:dev@rajivwallace.com"
+              href={`mailto:${info?.email || "dev@rajivwallace.com"}`}
               className="text-brand-light dark:text-brand-dark hover:underline text-sm font-medium transition-colors"
             >
-              dev@rajivwallace.com
+              {info?.email || "dev@rajivwallace.com"}
             </a>
           </div>
           <div className="text-center">
