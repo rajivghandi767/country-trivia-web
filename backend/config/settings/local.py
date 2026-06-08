@@ -1,11 +1,12 @@
 from .base import *
 import os
+from config.utils import is_service_available
 
 # ============================================================================
 # DEVELOPMENT SETTINGS
 # ============================================================================
 DEBUG = True
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-development-key-fallback')
 ALLOWED_HOSTS = os.getenv(
     'ALLOWED_HOSTS', 'localhost,127.0.0.1,trivia-backend').split(',')
 
@@ -64,16 +65,29 @@ MEDIA_ROOT = BASE_DIR / 'mediafiles'
 # ============================================================================
 # DATABASE FOR DEVELOPMENT
 # ============================================================================
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.getenv('POSTGRES_DB'),
-        'USER': os.getenv('POSTGRES_USER'),
-        'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-        'HOST': os.getenv('POSTGRES_HOST'),
-        'PORT': os.getenv('POSTGRES_PORT'),
+POSTGRES_HOST = os.getenv('POSTGRES_HOST')
+POSTGRES_PORT = os.getenv('POSTGRES_PORT')
+
+if is_service_available(POSTGRES_HOST, POSTGRES_PORT):
+    print(f"✅ Connected to Postgres at {POSTGRES_HOST}:{POSTGRES_PORT}")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.getenv('POSTGRES_DB'),
+            'USER': os.getenv('POSTGRES_USER'),
+            'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
+            'HOST': POSTGRES_HOST,
+            'PORT': POSTGRES_PORT,
+        }
     }
-}
+else:
+    print("⚠️ Postgres unreachable. Falling back to SQLite.")
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 # ============================================================================
 # STATIC & MEDIA FILES FOR DEVELOPMENT
