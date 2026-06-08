@@ -1,0 +1,96 @@
+services:
+  # DB Migration & Static Files Collection
+  trivia-backend-init:
+    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
+    container_name: trivia-backend-init
+    user: root
+    networks:
+      - trivia
+      - database
+    env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
+    command: >
+      sh -c "
+        echo 'Waiting for postgres-core...' &&
+        until python -c 'import socket,os; s=socket.socket(socket.AF_INET, socket.SOCK_STREAM); s.settimeout(2); s.connect((os.environ[\"POSTGRES_HOST\"], 5432)); s.close()'; do
+          echo 'Database not ready... waiting 2s';
+          sleep 2;
+        done &&
+        echo 'Database is ready!' &&
+        python manage.py migrate --noinput && 
+             python manage.py createcachetable &&
+             python manage.py load_country_data &&
+             python manage.py collectstatic --noinput"
+
+  # Trivia Backend - Django
+  trivia-backend:
+    image: ghcr.io/rajivghandi767/trivia-backend:${IMAGE_TAG:-latest}
+    container_name: trivia-backend
+    restart: unless-stopped
+    networks:
+      - trivia
+      - database
+    depends_on:
+      trivia-backend-init:
+        condition: service_completed_successfully
+    env_file: .env
+    volumes:
+      - trivia_static:/home/backend/django/staticfiles
+      - trivia_logs:/home/backend/django/logs
+    user: "backend:backend_group"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  trivia-frontend:
+    image: ghcr.io/rajivghandi767/trivia-frontend:${IMAGE_TAG:-latest}
+    container_name: trivia-frontend
+    restart: unless-stopped
+    networks:
+      - core
+      - trivia
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Single unified nginx service
+  trivia-nginx:
+    image: ghcr.io/rajivghandi767/trivia-nginx:${IMAGE_TAG:-latest}
+    container_name: trivia-nginx
+    restart: unless-stopped
+    networks:
+      - core
+      - trivia
+    depends_on:
+      trivia-backend:
+        condition: service_healthy
+      trivia-frontend:
+        condition: service_healthy
+    volumes:
+      - trivia_static:/usr/share/nginx/html/static:ro
+      - trivia_logs:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/nginx-status/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  trivia_static:
+  trivia_logs:
+
+networks:
+  core:
+    external: true
+  database:
+    external: true
+  trivia:

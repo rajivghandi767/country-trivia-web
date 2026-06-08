@@ -38,16 +38,18 @@ pipeline {
             parallel {
                 stage('Test Backend (Python)') {
                     steps {
-                        dir('backend') {
-                            echo "✅ BACKEND TESTS PASSED" 
-                        }
+                        sh '''
+                            docker build -t trivia-backend:test -f backend/Dockerfile ./backend
+                            docker run --rm trivia-backend:test python manage.py test
+                        '''
                     }
                 }
                 stage('Test Frontend (React)') {
                     steps {
-                        dir('frontend') {
-                            echo "✅ FRONTEND TESTS PASSED"
-                        }
+                        sh '''
+                            docker build -t trivia-frontend:test -f frontend/Dockerfile.dev ./frontend
+                            docker run --rm trivia-frontend:test npm run test
+                        '''
                     }
                 }
             }
