@@ -1,4 +1,4 @@
-import { CheckCircle, XCircle, Info } from "lucide-react";
+import { CheckCircleIcon, XCircleIcon, InfoIcon } from "../Icons";
 
 interface ResultDisplayProps {
   type: "correct" | "incorrect" | null;
@@ -28,11 +28,11 @@ const ResultDisplay = ({ type, message }: ResultDisplayProps) => {
       role="alert"
     >
       {isCorrect ? (
-        <CheckCircle className="w-5 h-5 shrink-0" />
+        <CheckCircleIcon className="w-5 h-5 shrink-0" />
       ) : isSkipped ? (
-        <Info className="w-5 h-5 shrink-0" />
+        <InfoIcon className="w-5 h-5 shrink-0" />
       ) : (
-        <XCircle className="w-5 h-5 shrink-0" />
+        <XCircleIcon className="w-5 h-5 shrink-0" />
       )}
       <span className="font-semibold text-sm">{message}</span>
     </div>

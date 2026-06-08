@@ -1,4 +1,4 @@
-import { Sun, Moon } from "lucide-react";
+import { SunIcon, MoonIcon } from "../Icons";
 import { useThemeContext } from "../../context/ThemeContext";
 import { ProjectSwitcher } from "./ProjectSwitcher";
 
@@ -12,9 +12,9 @@ const ThemeToggleButton = () => {
       aria-label="Toggle dark mode"
     >
       {theme === "dark" ? (
-        <Sun className="w-5 h-5" />
+        <SunIcon className="w-5 h-5" />
       ) : (
-        <Moon className="w-5 h-5" />
+        <MoonIcon className="w-5 h-5" />
       )}
     </button>
   );
