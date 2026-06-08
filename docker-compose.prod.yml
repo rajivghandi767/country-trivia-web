@@ -86,7 +86,9 @@ services:
 
 volumes:
   trivia_static:
+    name: trivia_static
   trivia_logs:
+    name: trivia_logs
 
 networks:
   core:
