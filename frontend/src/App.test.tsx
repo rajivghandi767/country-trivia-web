@@ -1,15 +1,15 @@
 import { render } from '@testing-library/react';
-import { describe, test, expect, vi } from 'vitest';
+import { describe, test, expect } from 'vitest';
 import App from './App';
-
-vi.stubGlobal('localStorage', {
-  getItem: vi.fn(),
-  setItem: vi.fn()
-});
+import { ThemeProvider } from './context/ThemeContext';
 
 describe('App Component', () => {
   test('renders without crashing', () => {
-    const { container } = render(<App />);
+    const { container } = render(
+      <ThemeProvider>
+        <App />
+      </ThemeProvider>
+    );
     expect(container).toBeDefined();
   });
 });
