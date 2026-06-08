@@ -30,9 +30,6 @@ export default defineConfig({
           ) {
             return "react-vendor";
           }
-          if (id.includes("node_modules/lucide-react")) {
-            return "ui-vendor";
-          }
         },
       },
     },
