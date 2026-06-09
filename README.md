@@ -22,11 +22,11 @@ A full-stack, AI-enhanced web application that tests your knowledge of world geo
 
 ## 📖 About The Project
 
-**Country Trivia Web** is the web-based evolution of my original [Country Trivia CLI project](https://github.com/rajivghandi767/country-trivia-cli). It is designed to challenge users' geography skills by asking them to match countries to their capitals and vice versa.
+As an avid traveler and geography enthusiast, I built **Country Trivia Web** as the web-based evolution of my original [Country Trivia CLI project](https://github.com/rajivghandi767/country-trivia-cli). It is designed to challenge users' geography skills by asking them to match countries to their capitals and vice versa.
 
 To elevate the application beyond a simple CRUD app, I integrated **Google's Generative AI (Gemini)**. The AI implementation provides intelligent, context-aware answer grading, dynamically generates fun facts, and creates entirely new multiple-choice quizzes on the fly.
 
-This project demonstrates my ability to integrate third-party LLMs into a traditional REST architecture, architect efficient database caching strategies, manage complex frontend state in React, and deploy a robust full-stack application.
+This project demonstrates my self-taught journey into software engineering—highlighting my ability to integrate third-party LLMs into a traditional REST architecture, architect efficient database caching strategies, manage complex frontend state in React, and deploy a robust full-stack application.
 
 ---
 
@@ -55,11 +55,12 @@ This project demonstrates my ability to integrate third-party LLMs into a tradit
 
 ### **Database & Infrastructure**
 
-- 🐘 PostgreSQL
+- 🐘 PostgreSQL & Redis (Isolated Database Network)
 - 🐳 Docker & Docker Compose
 - 🤖 Jenkins (CI/CD)
 - 🔐 HashiCorp Vault (Secrets Management)
-- 🌐 Nginx Proxy Manager (Reverse Proxy)
+- 🌐 Nginx Proxy Manager (Reverse Proxy) & Cloudflare
+- 📈 Prometheus, Grafana, & Alertmanager
 
 ---
 
@@ -70,55 +71,74 @@ Building this application required solving several interesting technical challen
 - **Three-Tiered Grading Architecture**: To balance speed, API cost, and accuracy, I engineered a hybrid grading system that escalates in computational complexity only when necessary.
   - _Tier 1 (Normalized Heuristic)_: User input is first evaluated against a normalized set of acceptable answers (handling capitalization and whitespace). This provides instant, zero-cost, $O(1)$ response times for obviously correct answers.
   - _Tier 2 (Fuzzy String Matching)_: If an exact match fails, the system applies an algorithmic fuzzy matching layer (e.g., evaluating Levenshtein distance). This catches minor typos and misspellings locally, entirely bypassing network overhead.
-  - _Tier 3 (AI Semantic Fallback)_: If the answer fails the local heuristic and fuzzy checks, it is dynamically routed to the Gemini LLM. The AI acts as a semantic judge, parsing edge cases like native language names (e.g., "Deutschland" for Germany) or partial geographic matches (e.g., accepting "Pretoria" for South Africa).
-- **API Latency Mitigation & Caching**: Relying solely on live LLM calls introduces unacceptable latency. To engineer around this, I implemented a read-through database caching strategy for the AI-generated trivia facts. The backend queries PostgreSQL first; a live, asynchronous fetch to the Gemini API is only triggered if a fact doesn't already exist. Once fetched, the new fact is stored for future rounds. This drastic reduction in API overhead maintains dynamic generation while guaranteeing speed.
+  - _Tier 3 (AI Semantic Fallback)_: If the answer fails the local heuristic and fuzzy checks, it is routed to the Gemini LLM. The AI acts as a semantic judge, parsing edge cases like native language names or partial geographic matches.
+- **API Latency Mitigation & Aggressive Redis Caching**: Relying solely on live LLM calls introduces unacceptable latency. To engineer around this and overcome the physical hardware constraints of the Raspberry Pi, I implemented an aggressive read-through caching strategy using **Redis**. The backend queries the high-speed cache first; a live, asynchronous fetch to the Gemini API is only triggered if a fact doesn't already exist. This implements enterprise caching best practices, drastically reducing both API overhead and database I/O.
 - **Data Integrity**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base.
 
 ---
 
 ## 🚀 Deployment & Infrastructure (Production)
 
-This project is continuously deployed to my [Home Lab](https://github.com/rajivghandi767/homelab-iac) environment running on a Raspberry Pi 4B.
+This project is continuously deployed to my [Home Lab](https://github.com/rajivghandi767/homelab-iac) environment running on a Raspberry Pi 4B, sitting behind a heavily segmented Ubiquiti network.
 
-- **Automated CI/CD**: Jenkins watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry.
-- **Secure Secrets**: API keys (like the Gemini API key) and database credentials are never hardcoded. They are injected at runtime via HashiCorp Vault.
-- **Routing**: Nginx Proxy Manager handles DNS routing and SSL certificates for the live domain.
+- **Zero-Trust Network Routing**: Incoming public traffic is proxied through Cloudflare to a UXG-Fiber Gateway, terminating at Nginx Proxy Manager within a strict Homelab VLAN. This prevents lateral access to other subnets.
+- **Automated CI/CD**: Jenkins watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
+- **Secure Secrets & Data Tiering**: API keys (like the Gemini API key) and database credentials are dynamically injected at runtime via HashiCorp Vault. The PostgreSQL database operates on a completely isolated `database` Docker network, ensuring the data layer is fully abstracted from public ingress.
+- **Observability**: Real-time application metrics and container health are continuously scraped by Prometheus and visualized on customized Grafana dashboards.
 
 ---
 
 ## 💻 Local Replication
 
-To run this project locally, you will need to adjust the production `docker-compose.yml` to build from source rather than pulling from my private registry.
+This section details how to replicate this environment locally. Everything is fully plug-and-play for local development without the need to manually modify `docker-compose.yml` configurations or supply external API keys.
 
-### 1. Prerequisites
+**Note on Gemini API:** A Gemini API key is **not required** for local development. The local seed data scripts handle populating the database with enough mock/cached data for development and testing purposes.
 
+### Prerequisites
+
+**For Docker Setup (Recommended):**
 - 🐳 Docker & Docker Compose
-- 🔑 A Google Gemini API Key
-- 📝 A `.env` file
 
-### 2. Configure Environment (`.env`)
+**For Manual Setup:**
+- 🐍 Python 3.x
+- 🟢 Node.js & npm
 
-Create a `.env` file based on `env.example`. Make sure to include:
+### Option 1: Docker (Recommended)
 
-- `POSTGRES_HOST=db`
-- `GEMINI_API_KEY=your_api_key_here`
-- `DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1`
-- `VITE_API_URL=http://localhost:8000`
+Local `docker-compose.yml` and `Dockerfile` configurations are already set to build directly from the source code folder for local development rather than pulling registry images. The `docker-compose.yml` is hardcoded to use `.env.example`, so absolutely no environment configuration is required.
 
-### 3. Modify `docker-compose.yml`
-
-- Change the `image` directives to `build` contexts for all custom services (`trivia-backend`, `trivia-frontend`, etc.).
-- Remove `external: true` from the network definitions.
-- Add a local PostgreSQL container service named `db` (matching your `POSTGRES_HOST` variable).
-
-### 4. Start the Application
-
+**Spin up the stack:**
 ```bash
 docker compose up -d --build
 ```
+*Note: The database migrations and seed data scripts are automatically executed during container startup! This includes bypassing the need for a live Gemini API key.*
 
-- **Frontend**: `http://localhost:5173`
-- **Backend**: `http://localhost:8000`
+**Accessing Local Services:**
+- Frontend: `http://localhost:5173`
+- Backend API: `http://localhost:8000`
+
+### Option 2: Manual Setup (Non-Docker)
+
+If you prefer running the servers manually without Docker:
+
+**1. Start the Backend API:**
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate
+pip install -r dev-requirements.txt
+cp ../env.example .env
+python manage.py migrate
+python manage.py seed_data
+python manage.py runserver
+```
+
+**2. Start the Frontend SPA:**
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
 ---
 
@@ -139,7 +159,9 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## 📬 Contact
 
-**Rajiv Wallace** - [LinkedIn](https://www.linkedin.com/in/rajiv-wallace)
+**Rajiv Wallace**  
+Self-taught Software Engineer based in NYC. Aviation enthusiast, F1 fanatic, and avid traveler transitioning into tech.
 
-- GitHub: [@rajivghandi767](https://github.com/rajivghandi767)
-- Email: dev@rajivwallace.com
+- **LinkedIn**: [linkedin.com/in/rajiv-wallace](https://www.linkedin.com/in/rajiv-wallace)
+- **GitHub**: [@rajivghandi767](https://github.com/rajivghandi767)
+- **Email**: [dev@rajivwallace.com](mailto:dev@rajivwallace.com)
