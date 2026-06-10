@@ -13,5 +13,4 @@ requests
 
 google-generativeai
 django-redis
-thefuzz
-python-Levenshtein
+rapidfuzz

@@ -1,13 +1,12 @@
-from trivia.models import QuizTopic, QuizQuestion, CountryFunFact, Country
-from datetime import datetime
+from trivia.models import QuizTopic, CountryFunFact, Country
 import os
 import google.generativeai as genai
 import logging
 import json
 import re
-from functools import lru_cache
+import hashlib
 from django.core.cache import cache
-from thefuzz import fuzz
+from rapidfuzz import fuzz
 
 logger = logging.getLogger(__name__)
 
@@ -79,9 +78,12 @@ def _normalize_string(s: str) -> str:
     return s.strip()
 
 
-@lru_cache(maxsize=1)
 def get_all_capitals_map():
     """Creates a map of {capital_name: [country1, country2]} to find shared capitals."""
+    capital_map = cache.get('all_capitals_map')
+    if capital_map is not None:
+        return capital_map
+
     capital_map = {}
     try:
         for country in Country.objects.all():
@@ -91,6 +93,7 @@ def get_all_capitals_map():
                 if c_name not in capital_map:
                     capital_map[c_name] = []
                 capital_map[c_name].append(country.name)
+        cache.set('all_capitals_map', capital_map, timeout=86400)
         return capital_map
     except Exception as e:
         logger.error(f"Error building capital map (is DB migrated?): {e}")
@@ -217,6 +220,16 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "points_awarded": 0, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
 
+    # Check cache for previous AI grading
+    safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
+    safe_country = hashlib.md5(country_name.strip().lower().encode()).hexdigest()
+    cache_key = f"ai_capital_{safe_country}_{safe_user}"
+    
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached AI capital grading for {country_name}. User: '{user_answer_str}'.")
+        return cached_result
+
     shared_capitals_context = {
         cap: [c for c in all_capitals_map.get(
             cap.lower(), []) if c != country_name]
@@ -270,6 +283,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         # Bumped temperature slightly to 0.5 to ensure varied extra facts
         result_json = _generate_ai_json(prompt, temperature=0.5)
         result_json["grading_method"] = "ai"
+        cache.set(cache_key, result_json, timeout=None) # Cache indefinitely
         logger.info(
             f"AI capital grading complete for {country_name}. User: '{user_answer_str}'.")
         return result_json
@@ -354,6 +368,16 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
 
+    # Check cache for previous AI grading
+    safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
+    safe_country = hashlib.md5(correct_country_name.strip().lower().encode()).hexdigest()
+    cache_key = f"ai_country_{safe_country}_{safe_user}"
+    
+    cached_result = cache.get(cache_key)
+    if cached_result:
+        logger.info(f"Returning cached AI country grading for {correct_country_name}. User: '{user_answer_str}'.")
+        return cached_result
+
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a "guess the country" question.
     You must provide your response *only* in the specified JSON format.
@@ -391,6 +415,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         result_json = _generate_ai_json(
             prompt, temperature=0.5, max_tokens=1024)
         result_json["grading_method"] = "ai"
+        cache.set(cache_key, result_json, timeout=None) # Cache indefinitely
         logger.info(
             f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'.")
         return result_json
