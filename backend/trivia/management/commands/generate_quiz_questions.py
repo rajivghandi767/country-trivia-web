@@ -1,4 +1,3 @@
-import json
 from django.core.management.base import BaseCommand
 from trivia.models import QuizTopic, QuizQuestion
 from trivia.ai_service import _generate_ai_json
