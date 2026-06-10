@@ -72,7 +72,7 @@ Building this application required solving several interesting technical challen
   - _Tier 1 (Normalized Heuristic)_: User input is first evaluated against a normalized set of acceptable answers (handling capitalization and whitespace). This provides instant, zero-cost, $O(1)$ response times for obviously correct answers.
   - _Tier 2 (Fuzzy String Matching)_: If an exact match fails, the system applies an algorithmic fuzzy matching layer (e.g., evaluating Levenshtein distance). This catches minor typos and misspellings locally, entirely bypassing network overhead.
   - _Tier 3 (AI Semantic Fallback)_: If the answer fails the local heuristic and fuzzy checks, it is routed to the Gemini LLM. The AI acts as a semantic judge, parsing edge cases like native language names or partial geographic matches.
-- **API Latency Mitigation & Aggressive Redis Caching**: Relying solely on live LLM calls introduces unacceptable latency. To engineer around this and overcome the physical hardware constraints of the Raspberry Pi, I implemented an aggressive read-through caching strategy using **Redis**. The backend queries the high-speed cache first; a live, asynchronous fetch to the Gemini API is only triggered if a fact doesn't already exist. This implements enterprise caching best practices, drastically reducing both API overhead and database I/O.
+
 - **Data Integrity**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base.
 
 ### Performance & Scaling
