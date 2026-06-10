@@ -79,7 +79,13 @@ def _normalize_string(s: str) -> str:
 
 
 def get_all_capitals_map():
-    """Creates a map of {capital_name: [country1, country2]} to find shared capitals."""
+    """
+    Constructs a reverse mapping of capital cities to their corresponding countries.
+    
+    This mapping is critical for evaluating edge cases where multiple countries share the
+    same capital city name. To avoid full table scans on the Country model for every 
+    grading request, the resulting dictionary is cached in Redis with a 24-hour timeout.
+    """
     capital_map = cache.get('all_capitals_map')
     if capital_map is not None:
         return capital_map
@@ -142,6 +148,15 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
 
 
 def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
+    """
+    Evaluates a user's guess for the capital of a given country using a multi-tiered architecture.
+    
+    Tier 1 (Deterministic): Immediate lookup against exact or normalized strings.
+    Tier 2 (Fuzzy Match): Levenshtein distance evaluation via RapidFuzz.
+    Tier 3 (AI Evaluation): Delegates to Gemini AI for semantic edge cases. The results are 
+                            persistently cached in Redis by a hash of the answer to drastically 
+                            reduce API costs and latency for repeated identical guesses.
+    """
     correct_capitals_list = [c.strip()
                              for c in correct_capitals_str.split('|')]
 
@@ -220,7 +235,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "points_awarded": 0, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
 
-    # Check cache for previous AI grading
+    # Check Redis cache for identical historical AI grading evaluations to bypass the LLM entirely
     safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
     safe_country = hashlib.md5(country_name.strip().lower().encode()).hexdigest()
     cache_key = f"ai_capital_{safe_country}_{safe_user}"
@@ -283,7 +298,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         # Bumped temperature slightly to 0.5 to ensure varied extra facts
         result_json = _generate_ai_json(prompt, temperature=0.5)
         result_json["grading_method"] = "ai"
-        cache.set(cache_key, result_json, timeout=None) # Cache indefinitely
+        cache.set(cache_key, result_json, timeout=None)  # Cache indefinitely to prevent repeated API calls
         logger.info(
             f"AI capital grading complete for {country_name}. User: '{user_answer_str}'.")
         return result_json
@@ -295,6 +310,12 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
 
 
 def grade_country_answer(correct_country_name, correct_capitals_str, user_answer_str):
+    """
+    Evaluates a user's guess for the country of a given capital using a multi-tiered architecture.
+    
+    Similar to `grade_capital_answer`, this utilizes deterministic lookups, rapidfuzz heuristics,
+    and finally an LLM-based evaluation that is persistently cached in Redis to optimize throughput.
+    """
     normalized_user = _normalize_string(user_answer_str)
 
     # Check if the user used a known alias (e.g., mapped "antigua" to "antigua and barbuda")
@@ -368,7 +389,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
         return {"is_correct": False, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
 
-    # Check cache for previous AI grading
+    # Check Redis cache for identical historical AI grading evaluations to bypass the LLM entirely
     safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
     safe_country = hashlib.md5(correct_country_name.strip().lower().encode()).hexdigest()
     cache_key = f"ai_country_{safe_country}_{safe_user}"
@@ -415,7 +436,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         result_json = _generate_ai_json(
             prompt, temperature=0.5, max_tokens=1024)
         result_json["grading_method"] = "ai"
-        cache.set(cache_key, result_json, timeout=None) # Cache indefinitely
+        cache.set(cache_key, result_json, timeout=None)  # Cache indefinitely to prevent repeated API calls
         logger.info(
             f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'.")
         return result_json
