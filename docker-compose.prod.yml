@@ -96,3 +96,4 @@ networks:
   database:
     external: true
   trivia:
+    name: trivia
