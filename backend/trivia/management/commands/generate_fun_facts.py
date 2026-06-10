@@ -12,12 +12,12 @@ class Command(BaseCommand):
         FACT_LIMIT = 25
         BATCH_SIZE = 25
 
-        # 1. Prioritize countries that haven't reached the target limit
+        # Prioritize countries that haven't reached the target limit
         countries_to_process = Country.objects.annotate(
             fact_count=models.Count('fun_facts')
         ).filter(fact_count__lt=FACT_LIMIT).order_by('fact_count')[:BATCH_SIZE]
 
-        # 2. Rolling Refresh: If all countries are full, pick a random batch to update
+        # Rolling Refresh: If all countries are full, pick a random batch to update
         if not countries_to_process:
             self.stdout.write(
                 f"♻️ All countries at capacity ({FACT_LIMIT}). Initiating rolling refresh...")
@@ -30,7 +30,7 @@ class Command(BaseCommand):
         country_names = [c.name for c in countries_to_process]
         self.stdout.write(f"Generating facts for: {', '.join(country_names)}")
 
-        # 3. The Prompt
+        # Construct the generation prompt
         prompt = f"""
         You are a trivia host. Generate one unique, lesser-known, and interesting "Did you know?" fun fact for each of the following countries: {json.dumps(country_names)}.
         The fact must be related to geography, history, science, football (soccer), or Formula 1.
@@ -48,7 +48,7 @@ class Command(BaseCommand):
                     # Deduplication check
                     if not CountryFunFact.objects.filter(country=country, fact_text=new_fact_text).exists():
 
-                        # 4. Rotation Logic: Delete the oldest fact if at capacity
+                        # Rotation Logic: Delete the oldest fact if at capacity
                         if country.fun_facts.count() >= FACT_LIMIT:
                             oldest_fact = country.fun_facts.order_by(
                                 'created_at').first()
