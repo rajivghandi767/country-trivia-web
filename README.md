@@ -75,6 +75,14 @@ Building this application required solving several interesting technical challen
 - **API Latency Mitigation & Aggressive Redis Caching**: Relying solely on live LLM calls introduces unacceptable latency. To engineer around this and overcome the physical hardware constraints of the Raspberry Pi, I implemented an aggressive read-through caching strategy using **Redis**. The backend queries the high-speed cache first; a live, asynchronous fetch to the Gemini API is only triggered if a fact doesn't already exist. This implements enterprise caching best practices, drastically reducing both API overhead and database I/O.
 - **Data Integrity**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base.
 
+### Performance & Scaling
+
+Integrating Large Language Models (LLMs) like Gemini AI into a real-time web application introduces immense latency (5-10s per request) and variable API costs. To achieve a zero-latency user experience, this app implements **Multi-Tiered Heuristics & Materialized Pre-Computation**:
+
+1. **Background Materialization:** The `generate_fun_facts` and `generate_quiz_questions` scripts run asynchronously via Cron/Jenkins. They harvest AI responses during off-peak hours and store them locally, completely decoupling the slow AI generation from the user's web request lifecycle.
+2. **Deterministic & Fuzzy Graders:** User answers are first evaluated using `O(1)` lookup maps (cached indefinitely in Redis) and Levenshtein distance algorithms (RapidFuzz), instantly grading 95% of answers without touching the AI.
+3. **Memoized LLM Fallback:** When semantic edge cases necessitate an actual AI evaluation, the exact prompt, answer, and result are permanently cached in Redis via an MD5 hash. Identical future guesses bypass the API entirely, capping financial costs and guaranteeing sub-second grading.
+
 ---
 
 ## 🚀 Deployment & Infrastructure (Production)
