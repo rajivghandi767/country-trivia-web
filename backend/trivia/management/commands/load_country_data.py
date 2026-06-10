@@ -1,6 +1,7 @@
 import csv
 from django.core.management.base import BaseCommand
 from trivia.models import Country
+from django.core.cache import cache
 import os
 
 
@@ -38,3 +39,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(
             f'Successfully loaded {len(countries_to_create)} countries.'))
+            
+        cache.clear()
+        self.stdout.write(self.style.SUCCESS('Cleared Redis cache.'))
