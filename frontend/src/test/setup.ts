@@ -25,4 +25,15 @@ Object.defineProperty(window, 'matchMedia', {
   })),
 });
 
-export {};
+// Mock IntersectionObserver
+// Mock IntersectionObserver
+class IntersectionObserverMock {
+  constructor() {}
+  disconnect() {}
+  observe() {}
+  takeRecords() { return []; }
+  unobserve() {}
+}
+import { vi } from 'vitest';
+vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+
