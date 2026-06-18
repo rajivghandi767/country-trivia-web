@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import apiService from "@/api/apiService";
 import { BugReportPayload } from "@/types";
 import { Button } from "./Button";
@@ -21,6 +21,13 @@ export const ReportModal: React.FC<ReportModalProps> = ({
   const [userNote, setUserNote] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [success, setSuccess] = useState(false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   if (!isOpen) return null;
 
@@ -39,7 +46,7 @@ export const ReportModal: React.FC<ReportModalProps> = ({
 
     if (!result.error) {
       setSuccess(true);
-      setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         onClose();
         setSuccess(false);
         setUserNote("");

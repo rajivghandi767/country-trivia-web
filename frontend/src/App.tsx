@@ -1,6 +1,7 @@
 import Game from "./components/Game";
 import Header from "./components/layout/Header";
 import Footer from "./components/layout/Footer";
+import { LazySection } from "./components/common/LazySection";
 
 function App() {
   return (
@@ -9,7 +10,9 @@ function App() {
       <main className="container mx-auto p-4 grow">
         <Game />
       </main>
-      <Footer />
+      <LazySection>
+        <Footer />
+      </LazySection>
     </div>
   );
 }
