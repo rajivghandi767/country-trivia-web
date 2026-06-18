@@ -1,5 +1,4 @@
 import { cn } from "@/utils/styleUtils";
-import { useState } from "react";
 
 interface CardProps {
   children: React.ReactNode;
@@ -20,83 +19,6 @@ const Card = ({ children, className, onClick, hover = true }: CardProps) => {
       onClick={onClick}
     >
       {children}
-    </div>
-  );
-};
-
-interface CardImageProps {
-  src: string;
-  alt: string;
-  className?: string;
-  fallback?: React.ReactNode;
-  aspectRatio?: "auto" | "square" | "video" | "3/2" | "4/3" | "16/9";
-  objectFit?: "contain" | "cover";
-  isEager?: boolean;
-}
-
-const CardImage = ({
-  src,
-  alt,
-  className,
-  fallback,
-  aspectRatio = "auto",
-  objectFit = "cover",
-  isEager = false,
-}: CardImageProps) => {
-  const [hasError, setHasError] = useState(false);
-
-  const aspectRatioClasses = {
-    auto: "",
-    square: "aspect-square",
-    video: "aspect-video",
-    "3/2": "aspect-[3/2]",
-    "4/3": "aspect-[4/3]",
-    "16/9": "aspect-[16/9]",
-  };
-
-  const objectFitClasses = {
-    contain: "object-contain",
-    cover: "object-cover",
-  };
-
-  if (hasError || !src) {
-    return (
-      <div
-        className={cn(
-          "w-full overflow-hidden bg-gray-100 dark:bg-neutral-900 flex items-center justify-center",
-          aspectRatioClasses[aspectRatio],
-          className,
-        )}
-      >
-        {fallback || (
-          <div className="text-gray-500 dark:text-gray-400 font-mono text-sm">
-            Image Unavailable
-          </div>
-        )}
-      </div>
-    );
-  }
-
-  return (
-    <div
-      className={cn(
-        "w-full overflow-hidden",
-        aspectRatioClasses[aspectRatio],
-        className,
-      )}
-    >
-      <img
-        src={src}
-        alt={alt}
-        className={cn(
-          "w-full h-full transition-transform duration-300 hover:scale-105",
-          objectFitClasses[objectFit],
-        )}
-        onError={() => setHasError(true)}
-        loading={isEager ? "eager" : "lazy"}
-        fetchPriority={isEager ? "high" : "auto"}
-        decoding="async"
-      />
     </div>
   );
 };
@@ -132,37 +54,4 @@ const CardTitle = ({ children, className, as = "h3" }: CardTitleProps) => {
   );
 };
 
-interface CardDescriptionProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-const CardDescription = ({ children, className }: CardDescriptionProps) => {
-  return (
-    <div
-      className={cn("text-sm text-brand-light dark:text-gray-300", className)}
-    >
-      {children}
-    </div>
-  );
-};
-
-interface CardFooterProps {
-  children: React.ReactNode;
-  className?: string;
-}
-
-const CardFooter = ({ children, className }: CardFooterProps) => {
-  return (
-    <div
-      className={cn(
-        "mt-auto pt-4 border-t border-gray-200 dark:border-neutral-800 flex justify-between items-center",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-};
-
-export { Card, CardImage, CardContent, CardTitle, CardDescription, CardFooter };
+export { Card, CardContent, CardTitle };
