@@ -18,43 +18,40 @@ def api_root(request):
     """
     API Endpoint List
     """
-    base_url = request.build_absolute_uri('/')
+    base_url = request.build_absolute_uri("/")
 
-    return JsonResponse({
-        "message": "Country Trivia API",
-        "status": "running",
-        "version": "1.0",
-        "api_url": f"{base_url}api/",
-        "endpoints": {
-            "api": f"{base_url}api/",
-            "health": f"{base_url}health/",
+    return JsonResponse(
+        {
+            "message": "Country Trivia API",
+            "status": "running",
+            "version": "1.0",
+            "api_url": f"{base_url}api/",
+            "endpoints": {
+                "api": f"{base_url}api/",
+                "health": f"{base_url}health/",
+            },
         }
-    })
+    )
 
 
 router = routers.DefaultRouter()
-router.register('trivia', CountryViewSet, basename='trivia')
-router.register('ai-quiz', AIQuizViewSet, basename='ai-quiz')
-router.register(r'report-issue', ReportedIssueViewSet, basename='report-issue')
+router.register("trivia", CountryViewSet, basename="trivia")
+router.register("ai-quiz", AIQuizViewSet, basename="ai-quiz")
+router.register(r"report-issue", ReportedIssueViewSet, basename="report-issue")
 
 urlpatterns = [
     # Root API Endpoint
-    path('', api_root, name='api-root'),
-
+    path("", api_root, name="api-root"),
     # API Routes
-    path('api/', include(router.urls)),
-
+    path("api/", include(router.urls)),
     # DRF Authentication removed as it is unnecessary for this project
-
     # Health Check Endpoints
-    path('health/', health_simple, name='health_simple'),
-    path('health/detailed/', health_detailed, name='health_detailed'),
-
+    path("health/", health_simple, name="health_simple"),
+    path("health/detailed/", health_detailed, name="health_detailed"),
     # Third-Party App URLs
-    path('', include('django_prometheus.urls')),   # Prometheus Monitoring
+    path("", include("django_prometheus.urls")),  # Prometheus Monitoring
 ]
 
 # Static file serving fallback for development
 if settings.DEBUG:
-    urlpatterns += static(settings.STATIC_URL,
-                          document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)

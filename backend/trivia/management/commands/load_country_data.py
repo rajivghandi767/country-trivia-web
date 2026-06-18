@@ -6,39 +6,43 @@ import os
 
 
 class Command(BaseCommand):
-    help = 'Loads Country Data from a CSV file into the database'
+    help = "Loads Country Data from a CSV file into the database"
 
     def handle(self, *args, **kwargs):
-        file_path = os.path.join('data', 'country_capitals.csv')
+        file_path = os.path.join("data", "country_capitals.csv")
 
         if Country.objects.exists():
-            self.stdout.write(self.style.SUCCESS(
-                'Country data already exists. Skipping load.'))
+            self.stdout.write(
+                self.style.SUCCESS("Country data already exists. Skipping load.")
+            )
             return
 
         Country.objects.all().delete()
-        self.stdout.write(self.style.SUCCESS(
-            'Successfully cleared existing country data.'))
+        self.stdout.write(
+            self.style.SUCCESS("Successfully cleared existing country data.")
+        )
 
-        with open(file_path, mode='r', encoding='utf-8') as file:
+        with open(file_path, mode="r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             countries_to_create = []
             for row in reader:
-
-                if not row['Country'] or not row['Capital']:
+                if not row["Country"] or not row["Capital"]:
                     continue
 
                 country = Country(
-                    name=row['Country'].strip(),
-                    capital=row['Capital'].strip(),
-                    continent=row['Continent'].strip()
+                    name=row["Country"].strip(),
+                    capital=row["Capital"].strip(),
+                    continent=row["Continent"].strip(),
                 )
                 countries_to_create.append(country)
 
             Country.objects.bulk_create(countries_to_create)
 
-        self.stdout.write(self.style.SUCCESS(
-            f'Successfully loaded {len(countries_to_create)} countries.'))
-            
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Successfully loaded {len(countries_to_create)} countries."
+            )
+        )
+
         cache.clear()
-        self.stdout.write(self.style.SUCCESS('Cleared Redis cache.'))
+        self.stdout.write(self.style.SUCCESS("Cleared Redis cache."))

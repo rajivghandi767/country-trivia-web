@@ -4,34 +4,37 @@ from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
-
     dependencies = [
-        ('trivia', '0005_reportedissue'),
+        ("trivia", "0005_reportedissue"),
     ]
 
     operations = [
         migrations.AlterModelOptions(
-            name='country',
+            name="country",
             options={},
         ),
         migrations.RenameField(
-            model_name='countryfunfact',
-            old_name='fact',
-            new_name='fact_text',
+            model_name="countryfunfact",
+            old_name="fact",
+            new_name="fact_text",
         ),
         migrations.AddField(
-            model_name='countryfunfact',
-            name='is_ai_generated',
+            model_name="countryfunfact",
+            name="is_ai_generated",
             field=models.BooleanField(default=False),
         ),
         migrations.AddField(
-            model_name='countryfunfact',
-            name='source',
-            field=models.CharField(choices=[('jenkins', 'Scheduled Task'), ('user', 'User Interaction')], default='jenkins', max_length=10),
+            model_name="countryfunfact",
+            name="source",
+            field=models.CharField(
+                choices=[("jenkins", "Scheduled Task"), ("user", "User Interaction")],
+                default="jenkins",
+                max_length=10,
+            ),
         ),
         migrations.AlterField(
-            model_name='country',
-            name='continent',
+            model_name="country",
+            name="continent",
             field=models.CharField(max_length=50),
         ),
     ]
