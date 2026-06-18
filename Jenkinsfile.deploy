@@ -65,7 +65,6 @@ pipeline {
                     [envVar: 'POSTGRES_DB', vaultKey: 'POSTGRES_DB'],
                     [envVar: 'GEMINI_API_KEY', vaultKey: 'GEMINI_API_KEY'],
                     [envVar: 'GEMINI_PROD_MODEL', vaultKey: 'GEMINI_PROD_MODEL'],
-                    [envVar: 'ADMIN_URL', vaultKey: 'ADMIN_URL'],
                     [envVar: 'DISCORD_BUG_WEBHOOK_URL', vaultKey: 'DISCORD_BUG_WEBHOOK_URL'],
                     [envVar: 'REDIS_URL', vaultKey: 'REDIS_URL'],
                 ]]]) {
@@ -83,7 +82,6 @@ pipeline {
                                 echo "POSTGRES_USER='${POSTGRES_USER}'" >> .env.prod
                                 echo "POSTGRES_PASSWORD='${POSTGRES_PASSWORD}'" >> .env.prod
                                 echo "POSTGRES_DB='${POSTGRES_DB}'" >> .env.prod
-                                echo "ADMIN_URL='${ADMIN_URL}'" >> .env.prod
                                 echo "GEMINI_API_KEY='${GEMINI_API_KEY}'" >> .env.prod
                                 echo "GEMINI_PROD_MODEL='${GEMINI_PROD_MODEL}'" >> .env.prod
                                 echo "DISCORD_BUG_WEBHOOK_URL='${DISCORD_BUG_WEBHOOK_URL}'" >> .env.prod
