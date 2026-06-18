@@ -34,6 +34,5 @@ class IntersectionObserverMock {
   takeRecords() { return []; }
   unobserve() {}
 }
-import { vi } from 'vitest';
 vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
 
