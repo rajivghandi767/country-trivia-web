@@ -31,6 +31,7 @@ interface CardImageProps {
   fallback?: React.ReactNode;
   aspectRatio?: "auto" | "square" | "video" | "3/2" | "4/3" | "16/9";
   objectFit?: "contain" | "cover";
+  isEager?: boolean;
 }
 
 const CardImage = ({
@@ -40,6 +41,7 @@ const CardImage = ({
   fallback,
   aspectRatio = "auto",
   objectFit = "cover",
+  isEager = false,
 }: CardImageProps) => {
   const [hasError, setHasError] = useState(false);
 
@@ -91,6 +93,9 @@ const CardImage = ({
           objectFitClasses[objectFit],
         )}
         onError={() => setHasError(true)}
+        loading={isEager ? "eager" : "lazy"}
+        fetchPriority={isEager ? "high" : "auto"}
+        decoding="async"
       />
     </div>
   );
