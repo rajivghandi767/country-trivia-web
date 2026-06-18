@@ -12,16 +12,16 @@ class Country(models.Model):
 
 class CountryFunFact(models.Model):
     SOURCE_CHOICES = [
-        ('jenkins', 'Scheduled Task'),
-        ('user', 'User Interaction'),
+        ("jenkins", "Scheduled Task"),
+        ("user", "User Interaction"),
     ]
 
     country = models.ForeignKey(
-        Country, on_delete=models.CASCADE, related_name='fun_facts')
+        Country, on_delete=models.CASCADE, related_name="fun_facts"
+    )
     fact_text = models.TextField()
     is_ai_generated = models.BooleanField(default=False)
-    source = models.CharField(
-        max_length=10, choices=SOURCE_CHOICES, default='jenkins')
+    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="jenkins")
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -37,7 +37,8 @@ class QuizTopic(models.Model):
 
 class QuizQuestion(models.Model):
     topic = models.ForeignKey(
-        QuizTopic, on_delete=models.CASCADE, related_name='questions')
+        QuizTopic, on_delete=models.CASCADE, related_name="questions"
+    )
     question_text = models.CharField(max_length=500)
     options = models.JSONField()
     correct_answer = models.CharField(max_length=200)
@@ -50,10 +51,10 @@ class QuizQuestion(models.Model):
 
 class ReportedIssue(models.Model):
     ISSUE_TYPES = [
-        ('fact_error', 'Fact is wrong'),
-        ('typo', 'Typo or Grammar'),
-        ('ui_bug', 'UI/Visual Bug'),
-        ('other', 'Other'),
+        ("fact_error", "Fact is wrong"),
+        ("typo", "Typo or Grammar"),
+        ("ui_bug", "UI/Visual Bug"),
+        ("other", "Other"),
     ]
 
     question_id = models.IntegerField(null=True, blank=True)
@@ -64,4 +65,6 @@ class ReportedIssue(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return f"{self.get_issue_type_display()} - {self.created_at.strftime('%m/%d/%Y')}"
+        return (
+            f"{self.get_issue_type_display()} - {self.created_at.strftime('%m/%d/%Y')}"
+        )

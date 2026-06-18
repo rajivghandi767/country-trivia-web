@@ -11,10 +11,10 @@ from rapidfuzz import fuzz
 logger = logging.getLogger(__name__)
 
 # Determine environment
-IS_PRODUCTION = os.getenv('DJANGO_ENV') == 'production'
+IS_PRODUCTION = os.getenv("DJANGO_ENV") == "production"
 
-PROD_MODEL = os.getenv('GEMINI_PROD_MODEL')
-DEV_MODEL = os.getenv('GEMINI_DEV_MODEL')
+PROD_MODEL = os.getenv("GEMINI_PROD_MODEL")
+DEV_MODEL = os.getenv("GEMINI_DEV_MODEL")
 
 if IS_PRODUCTION:
     ACTIVE_MODEL_NAME = PROD_MODEL
@@ -29,7 +29,8 @@ logger.info(f"AI Service Initialized. Using model: {ACTIVE_MODEL_NAME}")
 api_key = os.getenv("GEMINI_API_KEY")
 if not api_key:
     logger.warning(
-        "GEMINI_API_KEY environment variable not set. AI features will be disabled.")
+        "GEMINI_API_KEY environment variable not set. AI features will be disabled."
+    )
 else:
     try:
         genai.configure(api_key=api_key)
@@ -81,50 +82,30 @@ def _normalize_string(s: str) -> str:
 def get_all_capitals_map():
     """
     Constructs a reverse mapping of capital cities to their corresponding countries.
-    
+
     This mapping is critical for evaluating edge cases where multiple countries share the
-    same capital city name. To avoid full table scans on the Country model for every 
+    same capital city name. To avoid full table scans on the Country model for every
     grading request, the resulting dictionary is cached in Redis with a 24-hour timeout.
     """
-    capital_map = cache.get('all_capitals_map')
+    capital_map = cache.get("all_capitals_map")
     if capital_map is not None:
         return capital_map
 
     capital_map = {}
     try:
         for country in Country.objects.all():
-            capitals = country.capital.split('|')
+            capitals = country.capital.split("|")
             for capital in capitals:
                 c_name = capital.strip().lower()
                 if c_name not in capital_map:
                     capital_map[c_name] = []
                 capital_map[c_name].append(country.name)
-        cache.set('all_capitals_map', capital_map, timeout=86400)
+        cache.set("all_capitals_map", capital_map, timeout=86400)
         return capital_map
     except Exception as e:
         logger.error(f"Error building capital map (is DB migrated?): {e}")
         return {}
 
-
-def _get_fuzzy_fallback(user_answer: str, correct_options: list, default_failure_msg: str, default_success_msg: str = "Correct!") -> dict:
-    """Heuristic grading using Levenshtein distance when AI is unreachable."""
-    best_score = 0
-    normalized_user = _normalize_string(user_answer)
-
-    for option in correct_options:
-        score = fuzz.token_sort_ratio(
-            normalized_user, _normalize_string(option))
-        best_score = max(best_score, score)
-
-    is_correct = best_score >= 85
-
-    return {
-        "is_correct": is_correct,
-        "points_awarded": 1 if is_correct else 0,
-        "feedback_message": default_success_msg if is_correct else default_failure_msg,
-        "grading_method": "fuzzy_fallback",
-        "is_fallback": True
-    }
 
 
 def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4096):
@@ -144,45 +125,56 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
     response_text = response.text.strip().replace("```json", "").replace("```", "")
     return json.loads(response_text)
 
+
 # --- Feature 1: "Guess the Capital" Grader ---
 
 
 def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
     """
     Evaluates a user's guess for the capital of a given country using a multi-tiered architecture.
-    
+
     Tier 1 (Deterministic): Immediate lookup against exact or normalized strings.
     Tier 2 (Fuzzy Match): Levenshtein distance evaluation via RapidFuzz.
-    Tier 3 (AI Evaluation): Delegates to Gemini AI for semantic edge cases. The results are 
-                            persistently cached in Redis by a hash of the answer to drastically 
+    Tier 3 (AI Evaluation): Delegates to Gemini AI for semantic edge cases. The results are
+                            persistently cached in Redis by a hash of the answer to drastically
                             reduce API costs and latency for repeated identical guesses.
     """
-    correct_capitals_list = [c.strip()
-                             for c in correct_capitals_str.split('|')]
+    correct_capitals_list = [c.strip() for c in correct_capitals_str.split("|")]
 
     # Normalize inputs to safely ignore punctuation and "St." abbreviations
     normalized_user = _normalize_string(user_answer_str)
-    lower_correct_options = [_normalize_string(
-        c) for c in correct_capitals_list]
+    lower_correct_options = [_normalize_string(c) for c in correct_capitals_list]
 
     capital_count = len(correct_capitals_list)
-    capitals_list_str = correct_capitals_str.replace('|', ' and ')
+    capitals_list_str = correct_capitals_str.replace("|", " and ")
 
     if capital_count == 1:
-        default_failure_msg = f"Incorrect 😔. The correct capital is {correct_capitals_list[0]}."
-        default_success_msg = f"Correct! The capital of {country_name} is {correct_capitals_list[0]}."
+        default_failure_msg = (
+            f"Incorrect 😔. The correct capital is {correct_capitals_list[0]}."
+        )
+        default_success_msg = (
+            f"Correct! The capital of {country_name} is {correct_capitals_list[0]}."
+        )
     else:
-        default_failure_msg = f"Incorrect 😔. The correct capitals are {capitals_list_str}."
-        default_success_msg = f"Correct! The capitals of {country_name} are {capitals_list_str}."
+        default_failure_msg = (
+            f"Incorrect 😔. The correct capitals are {capitals_list_str}."
+        )
+        default_success_msg = (
+            f"Correct! The capitals of {country_name} are {capitals_list_str}."
+        )
 
     all_capitals_map = get_all_capitals_map()
 
     # TIER 1: Deterministic Check
     if normalized_user in lower_correct_options:
-        actual_capital_cased = correct_capitals_list[lower_correct_options.index(
-            normalized_user)]
-        shared_with = [c for c in all_capitals_map.get(
-            actual_capital_cased.lower(), []) if c != country_name]
+        actual_capital_cased = correct_capitals_list[
+            lower_correct_options.index(normalized_user)
+        ]
+        shared_with = [
+            c
+            for c in all_capitals_map.get(actual_capital_cased.lower(), [])
+            if c != country_name
+        ]
 
         msg = default_success_msg
         if shared_with:
@@ -193,11 +185,15 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
             "all_capitals_guessed": capital_count == 1,
             "correct_guesses": [user_answer_str],
             "incorrect_guesses": [],
-            "missed_capitals": [c for c in correct_capitals_list if _normalize_string(c) != normalized_user],
+            "missed_capitals": [
+                c
+                for c in correct_capitals_list
+                if _normalize_string(c) != normalized_user
+            ],
             "points_awarded": 1,
             "shared_capital_info": shared_with if shared_with else None,
             "feedback_message": msg,
-            "grading_method": "deterministic"
+            "grading_method": "deterministic",
         }
 
     # TIER 2: Fuzzy Match
@@ -211,8 +207,11 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
 
     if best_score >= 85:
         actual_capital_cased = correct_capitals_list[best_match_idx]
-        shared_with = [c for c in all_capitals_map.get(
-            actual_capital_cased.lower(), []) if c != country_name]
+        shared_with = [
+            c
+            for c in all_capitals_map.get(actual_capital_cased.lower(), [])
+            if c != country_name
+        ]
 
         msg = default_success_msg
         if shared_with:
@@ -223,35 +222,45 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
             "all_capitals_guessed": capital_count == 1,
             "correct_guesses": [user_answer_str],
             "incorrect_guesses": [],
-            "missed_capitals": [c for c in correct_capitals_list if fuzz.token_sort_ratio(normalized_user, _normalize_string(c)) < 85],
+            "missed_capitals": [
+                c
+                for c in correct_capitals_list
+                if fuzz.token_sort_ratio(normalized_user, _normalize_string(c)) < 85
+            ],
             "points_awarded": 1,
             "shared_capital_info": shared_with if shared_with else None,
             "feedback_message": msg,
-            "grading_method": "fuzzy"
+            "grading_method": "fuzzy",
         }
 
     # TIER 3: AI Grading & Fact Harvesting
     if not api_key:
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
-        return {"is_correct": False, "points_awarded": 0, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
+        return {
+            "is_correct": False,
+            "points_awarded": 0,
+            "feedback_message": default_failure_msg,
+            "grading_method": "hard_fallback",
+        }
 
     # Check Redis cache for identical historical AI grading evaluations to bypass the LLM entirely
     safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
     safe_country = hashlib.md5(country_name.strip().lower().encode()).hexdigest()
     cache_key = f"ai_capital_{safe_country}_{safe_user}"
-    
+
     cached_result = cache.get(cache_key)
     if cached_result:
-        logger.info(f"Returning cached AI capital grading for {country_name}. User: '{user_answer_str}'.")
+        logger.info(
+            f"Returning cached AI capital grading for {country_name}. User: '{user_answer_str}'."
+        )
         return cached_result
 
     shared_capitals_context = {
-        cap: [c for c in all_capitals_map.get(
-            cap.lower(), []) if c != country_name]
-        for cap in correct_capitals_list if cap.lower() in all_capitals_map
+        cap: [c for c in all_capitals_map.get(cap.lower(), []) if c != country_name]
+        for cap in correct_capitals_list
+        if cap.lower() in all_capitals_map
     }
-    shared_capitals_context = {k: v for k,
-                               v in shared_capitals_context.items() if v}
+    shared_capitals_context = {k: v for k, v in shared_capitals_context.items() if v}
 
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a capital city question.
@@ -298,13 +307,22 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         # Bumped temperature slightly to 0.5 to ensure varied extra facts
         result_json = _generate_ai_json(prompt, temperature=0.5)
         result_json["grading_method"] = "ai"
-        cache.set(cache_key, result_json, timeout=None)  # Cache indefinitely to prevent repeated API calls
+        cache.set(
+            cache_key, result_json, timeout=None
+        )  # Cache indefinitely to prevent repeated API calls
         logger.info(
-            f"AI capital grading complete for {country_name}. User: '{user_answer_str}'.")
+            f"AI capital grading complete for {country_name}. User: '{user_answer_str}'."
+        )
         return result_json
     except Exception as e:
         logger.error(f"Error calling Gemini or parsing JSON for capital: {e}")
-        return {"is_correct": False, "points_awarded": 0, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
+        return {
+            "is_correct": False,
+            "points_awarded": 0,
+            "feedback_message": default_failure_msg,
+            "grading_method": "hard_fallback",
+        }
+
 
 # --- Feature 1 (Reverse): "Guess the Country" Grader ---
 
@@ -312,18 +330,16 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
 def grade_country_answer(correct_country_name, correct_capitals_str, user_answer_str):
     """
     Evaluates a user's guess for the country of a given capital using a multi-tiered architecture.
-    
+
     Similar to `grade_capital_answer`, this utilizes deterministic lookups, rapidfuzz heuristics,
     and finally an LLM-based evaluation that is persistently cached in Redis to optimize throughput.
     """
     normalized_user = _normalize_string(user_answer_str)
 
     # Check if the user used a known alias (e.g., mapped "antigua" to "antigua and barbuda")
-    normalized_user = COMMON_COUNTRY_ALIASES.get(
-        normalized_user, normalized_user)
+    normalized_user = COMMON_COUNTRY_ALIASES.get(normalized_user, normalized_user)
 
-    correct_capitals_list = [c.strip()
-                             for c in correct_capitals_str.split('|')]
+    correct_capitals_list = [c.strip() for c in correct_capitals_str.split("|")]
     capital_count = len(correct_capitals_list)
     capital_name_for_context = correct_capitals_list[0]
 
@@ -342,15 +358,23 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     if capital_lower in all_capitals_map:
         valid_countries_for_capital = all_capitals_map[capital_lower]
 
-    lower_valid_countries = [_normalize_string(
-        c) for c in valid_countries_for_capital]
+    lower_valid_countries = [_normalize_string(c) for c in valid_countries_for_capital]
 
     def get_shared_success_msg(matched_country_lower):
         # Find the properly cased name from our valid list
-        matched_cased = next((c for c in valid_countries_for_capital if _normalize_string(
-            c) == matched_country_lower), user_answer_str.title())
-        other_countries = [c for c in valid_countries_for_capital if _normalize_string(
-            c) != matched_country_lower]
+        matched_cased = next(
+            (
+                c
+                for c in valid_countries_for_capital
+                if _normalize_string(c) == matched_country_lower
+            ),
+            user_answer_str.title(),
+        )
+        other_countries = [
+            c
+            for c in valid_countries_for_capital
+            if _normalize_string(c) != matched_country_lower
+        ]
 
         if matched_country_lower == _normalize_string(correct_country_name):
             msg = default_success_msg
@@ -365,7 +389,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         return {
             "is_correct": True,
             "feedback_message": get_shared_success_msg(normalized_user),
-            "grading_method": "deterministic"
+            "grading_method": "deterministic",
         }
 
     # TIER 2: Fuzzy Match
@@ -381,22 +405,30 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         return {
             "is_correct": True,
             "feedback_message": get_shared_success_msg(best_match_country),
-            "grading_method": "fuzzy"
+            "grading_method": "fuzzy",
         }
 
     # TIER 3: AI Grading & Fact Harvesting
     if not api_key:
         logger.warning("GEMINI_API_KEY not set. Returning hard fallback.")
-        return {"is_correct": False, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
+        return {
+            "is_correct": False,
+            "feedback_message": default_failure_msg,
+            "grading_method": "hard_fallback",
+        }
 
     # Check Redis cache for identical historical AI grading evaluations to bypass the LLM entirely
     safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
-    safe_country = hashlib.md5(correct_country_name.strip().lower().encode()).hexdigest()
+    safe_country = hashlib.md5(
+        correct_country_name.strip().lower().encode()
+    ).hexdigest()
     cache_key = f"ai_country_{safe_country}_{safe_user}"
-    
+
     cached_result = cache.get(cache_key)
     if cached_result:
-        logger.info(f"Returning cached AI country grading for {correct_country_name}. User: '{user_answer_str}'.")
+        logger.info(
+            f"Returning cached AI country grading for {correct_country_name}. User: '{user_answer_str}'."
+        )
         return cached_result
 
     prompt = f"""
@@ -433,16 +465,23 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
     **CRITICAL: Respond ONLY with the raw JSON object.**
     """
     try:
-        result_json = _generate_ai_json(
-            prompt, temperature=0.5, max_tokens=1024)
+        result_json = _generate_ai_json(prompt, temperature=0.5, max_tokens=1024)
         result_json["grading_method"] = "ai"
-        cache.set(cache_key, result_json, timeout=None)  # Cache indefinitely to prevent repeated API calls
+        cache.set(
+            cache_key, result_json, timeout=None
+        )  # Cache indefinitely to prevent repeated API calls
         logger.info(
-            f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'.")
+            f"AI country grading complete for {correct_country_name}. User: '{user_answer_str}'."
+        )
         return result_json
     except Exception as e:
         logger.error(f"Error calling Gemini or parsing JSON for country: {e}")
-        return {"is_correct": False, "feedback_message": default_failure_msg, "grading_method": "hard_fallback"}
+        return {
+            "is_correct": False,
+            "feedback_message": default_failure_msg,
+            "grading_method": "hard_fallback",
+        }
+
 
 # --- Feature 2: Fun Fact Generator ---
 
@@ -452,7 +491,7 @@ def get_fun_fact(country_name):
     try:
         # 1. Check the database first
         country = Country.objects.get(name=country_name)
-        random_fact = country.fun_facts.order_by('?').first()
+        random_fact = country.fun_facts.order_by("?").first()
 
         # If we have a fact, return it immediately (costs 0 API credits)
         if random_fact:
@@ -463,8 +502,7 @@ def get_fun_fact(country_name):
         if not api_key:
             return f"Did you know {country_name} is a fascinating place to learn about!"
 
-        logger.info(
-            f"No facts found for {country_name}. Triggering JIT harvesting.")
+        logger.info(f"No facts found for {country_name}. Triggering JIT harvesting.")
 
         prompt = f"""
         You are an expert geography trivia host. 
@@ -479,23 +517,24 @@ def get_fun_fact(country_name):
 
         result = _generate_ai_json(prompt, temperature=0.7)
 
-        if result and result.get('extra_facts'):
+        if result and result.get("extra_facts"):
             harvest_count = 0
-            for fact_text in result['extra_facts']:
+            for fact_text in result["extra_facts"]:
                 _, created = CountryFunFact.objects.get_or_create(
                     country=country,
                     fact_text=fact_text,
-                    defaults={'is_ai_generated': True, 'source': 'user'}
+                    defaults={"is_ai_generated": True, "source": "user"},
                 )
                 if created:
                     harvest_count += 1
 
             if harvest_count > 0:
                 logger.info(
-                    f"JIT Harvested {harvest_count} new facts for {country_name}.")
+                    f"JIT Harvested {harvest_count} new facts for {country_name}."
+                )
 
             # Return the first newly harvested fact to the frontend immediately
-            return result['extra_facts'][0]
+            return result["extra_facts"][0]
 
         # Ultimate fallback if the AI request fails or returns bad JSON
         return f"Did you know {country_name} is a fascinating place to learn about!"
@@ -504,35 +543,39 @@ def get_fun_fact(country_name):
         logger.error(f"Fun fact requested for unknown country: {country_name}")
         return "Did you know the world has over 190 countries?"
     except Exception as e:
-        logger.error(
-            f"Error during JIT fun fact generation for {country_name}: {e}")
+        logger.error(f"Error during JIT fun fact generation for {country_name}: {e}")
         return f"Did you know {country_name} is a fascinating place to learn about!"
+
 
 # --- Feature 3: Dynamic Quiz Generator ---
 
 
-def generate_ai_quiz(topic_name, fresh=False):
+def generate_ai_quiz(topic_name):
     """Fetches 10 random pre-generated quiz questions from the database."""
     try:
         # Fetch the topic (case-insensitive match)
         topic = QuizTopic.objects.get(name__iexact=topic_name)
 
         # Pull 10 random questions for this topic
-        questions = topic.questions.order_by('?')[:10]
+        questions = topic.questions.order_by("?")[:10]
 
         if questions.count() < 10:
-            return {"error": "We are still building the question pool for this topic. Check back later!"}
+            return {
+                "error": "We are still building the question pool for this topic. Check back later!"
+            }
 
         # Format them to match the exact JSON structure your React frontend expects
         quiz_data = []
         for q in questions:
-            quiz_data.append({
-                "id": q.id,
-                "question": q.question_text,
-                "options": q.options,
-                "correctAnswer": q.correct_answer,
-                "funFact": q.fun_fact
-            })
+            quiz_data.append(
+                {
+                    "id": q.id,
+                    "question": q.question_text,
+                    "options": q.options,
+                    "correctAnswer": q.correct_answer,
+                    "funFact": q.fun_fact,
+                }
+            )
 
         return quiz_data
 
