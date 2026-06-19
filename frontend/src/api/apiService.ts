@@ -1,4 +1,4 @@
-import { ApiResponse, Country, AIAnswerResponse, AIQuestion, GameMode, BugReportPayload } from "@/types";
+import { ApiResponse, Country, AIAnswerResponse, AIQuestion, AIQuizAnswerResponse, GameMode, BugReportPayload } from "@/types";
 
 // Base URL for the API from environment variables, without a fallback.
 const API_URL = import.meta.env.VITE_API_URL + '/api/';
@@ -88,6 +88,12 @@ const apiService = {
         endpoint += "&fresh=true";
       }
       return fetchApi<AIQuestion[]>(endpoint);
+    },
+    checkAnswer: (questionId: number, userAnswer: string): Promise<ApiResponse<AIQuizAnswerResponse>> => {
+      return fetchApi<AIQuizAnswerResponse>(`ai-quiz/${questionId}/check-answer/`, {
+        method: "POST",
+        body: JSON.stringify({ user_answer: userAnswer }),
+      });
     },
   },
 

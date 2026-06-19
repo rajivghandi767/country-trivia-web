@@ -608,8 +608,6 @@ def generate_ai_quiz(topic_name):
                     "id": q.id,
                     "question": q.question_text,
                     "options": q.options,
-                    "correctAnswer": q.correct_answer,
-                    "funFact": q.fun_fact,
                 }
             )
 

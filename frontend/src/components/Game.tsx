@@ -73,12 +73,7 @@ const Game = () => {
     });
   }, []);
 
-  const normalizeAnswer = (answer: string): string => {
-    return answer
-      .trim()
-      .toLowerCase()
-      .replace(/[',.-]/g, "");
-  };
+
 
   const startGame = (mode: GameMode) => {
     setGameData([]);
@@ -116,24 +111,38 @@ const Game = () => {
     }
   }, [aiQuizData, aiQuizError, gameMode]);
 
-  const handleAiQuizAnswer = (
+  const handleAiQuizAnswer = async (
     option: string,
     activeGameData: GameQuestion[],
   ) => {
     if (isAnswered) return;
     setIsAnswered(true);
+    
     const q = activeGameData[currentIndex] as AIQuestion;
-    const isCorrect =
-      normalizeAnswer(option) === normalizeAnswer(q.correctAnswer);
-
-    setResult({
-      type: isCorrect ? "correct" : "incorrect",
-      message: isCorrect
-        ? "Correct!"
-        : `Incorrect 😔, the correct answer was ${q.correctAnswer}`,
-    });
-    if (isCorrect) setScore((s) => s + 1);
-    setFunFact(q.funFact || null);
+    setFunFact("Loading result...");
+    
+    try {
+      const result = await apiService.aiQuiz.checkAnswer(q.id, option);
+      if (result.error || !result.data) throw new Error(result.error || "Failed to grade");
+      
+      const { is_correct, correct_answer, fun_fact } = result.data;
+      
+      setResult({
+        type: is_correct ? "correct" : "incorrect",
+        message: is_correct
+          ? "Correct!"
+          : `Incorrect 😔, the correct answer was ${correct_answer}`,
+      });
+      
+      if (is_correct) setScore((s) => s + 1);
+      setFunFact(fun_fact || null);
+    } catch (err) {
+      setResult({
+        type: "incorrect",
+        message: "Error connecting to the grading server. Please try again.",
+      });
+      setFunFact(null);
+    }
   };
 
   /**

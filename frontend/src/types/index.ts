@@ -23,12 +23,16 @@ export interface AIAnswerResponse {
   shared_capital_info?: string | null;
 }
 
+export interface AIQuizAnswerResponse {
+  is_correct: boolean;
+  correct_answer: string;
+  fun_fact: string;
+}
+
 export interface AIQuestion {
   id: number;
   question: string;
   options: string[];
-  correctAnswer: string;
-  funFact?: string;
 }
 
 export type GameMode = "capital" | "country" | "ai-quiz" | null;

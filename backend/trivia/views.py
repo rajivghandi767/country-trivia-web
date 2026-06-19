@@ -139,6 +139,23 @@ class AIQuizViewSet(viewsets.ViewSet):
 
         return Response(quiz_data)
 
+    @action(detail=True, methods=["post"], url_path="check-answer")
+    def check_answer(self, request, pk=None):
+        from django.shortcuts import get_object_or_404
+        from .models import QuizQuestion
+
+        question = get_object_or_404(QuizQuestion, pk=pk)
+        user_answer = request.data.get("user_answer", "").strip().lower()
+        correct_answer = question.correct_answer.strip().lower()
+        
+        is_correct = user_answer == correct_answer
+        
+        return Response({
+            "is_correct": is_correct,
+            "correct_answer": question.correct_answer,
+            "fun_fact": question.fun_fact,
+        })
+
 
 class ReportedIssueViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "post", "head", "options"]
