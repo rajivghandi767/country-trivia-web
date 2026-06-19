@@ -1,7 +1,11 @@
+from __future__ import annotations
 import logging
+from typing import Any
+from django.db.models import QuerySet
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.request import Request
 from .models import Country, CountryFunFact, ReportedIssue
 from .serializers import CountrySerializer, ReportedIssueSerializer
 from . import ai_service
@@ -18,7 +22,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Country.objects.all().order_by("id")
     serializer_class = CountrySerializer
 
-    def get_queryset(self):
+    def get_queryset(self) -> QuerySet[Country]:
         """
         Dynamically limits and shuffles the queryset based on API parameters.
         
@@ -41,7 +45,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         return queryset
 
     @action(detail=True, methods=["post"], url_path="check-answer")
-    def check_answer(self, request, pk=None):
+    def check_answer(self, request: Request, pk: str | None = None) -> Response:
         """
         Grades user answers and harvests AI-generated feedback into the database.
         
@@ -112,7 +116,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(result)
 
     @action(detail=True, methods=["get"], url_path="fun-fact")
-    def fun_fact(self, request, pk=None):
+    def fun_fact(self, request: Request, pk: str | None = None) -> Response:
         """
         Retrieves a fun fact for a specific country, triggering JIT harvesting if needed.
         """
@@ -130,7 +134,7 @@ class AIQuizViewSet(viewsets.ViewSet):
     """
 
     @action(detail=False, methods=["get"])
-    def generate(self, request):
+    def generate(self, request: Request) -> Response:
         topic = request.query_params.get("topic", "World Geography")
         quiz_data = ai_service.generate_ai_quiz(topic)
 
@@ -140,7 +144,7 @@ class AIQuizViewSet(viewsets.ViewSet):
         return Response(quiz_data)
 
     @action(detail=True, methods=["post"], url_path="check-answer")
-    def check_answer(self, request, pk=None):
+    def check_answer(self, request: Request, pk: str | None = None) -> Response:
         from django.shortcuts import get_object_or_404
         from .models import QuizQuestion
 

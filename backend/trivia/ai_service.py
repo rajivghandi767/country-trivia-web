@@ -5,6 +5,7 @@ import logging
 import json
 import re
 import hashlib
+from typing import Any
 from django.core.cache import cache
 from rapidfuzz import fuzz
 
@@ -79,7 +80,7 @@ def _normalize_string(s: str) -> str:
     return s.strip()
 
 
-def get_all_capitals_map():
+def get_all_capitals_map() -> dict[str, list[str]]:
     """
     Constructs a reverse mapping of capital cities to their corresponding countries.
 
@@ -108,7 +109,7 @@ def get_all_capitals_map():
 
 
 
-def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4096):
+def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4096) -> dict[str, Any]:
     """
     Centralized helper to interact with the Gemini API and return parsed JSON.
     
@@ -129,8 +130,8 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
         "response_mime_type": "application/json",
     }
     model = genai.GenerativeModel(
-        model_name=ACTIVE_MODEL_NAME,
-        generation_config=generation_config,
+        model_name=str(ACTIVE_MODEL_NAME),
+        generation_config=generation_config,  # type: ignore
     )
     response = model.generate_content(prompt)
     response_text = response.text.strip().replace("```json", "").replace("```", "")
@@ -140,7 +141,7 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
 # --- Feature 1: "Guess the Capital" Grader ---
 
 
-def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
+def grade_capital_answer(country_name: str, correct_capitals_str: str, user_answer_str: str) -> dict[str, Any]:
     """
     Evaluates a user's guess for the capital of a given country using a multi-tiered architecture.
 
@@ -208,7 +209,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         }
 
     # TIER 2: Fuzzy Match
-    best_score = 0
+    best_score: float = 0.0
     best_match_idx = -1
     for i, opt in enumerate(lower_correct_options):
         score = fuzz.token_sort_ratio(normalized_user, opt)
@@ -342,7 +343,7 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
 # --- Feature 1 (Reverse): "Guess the Country" Grader ---
 
 
-def grade_country_answer(correct_country_name, correct_capitals_str, user_answer_str):
+def grade_country_answer(correct_country_name: str, correct_capitals_str: str, user_answer_str: str) -> dict[str, Any]:
     """
     Evaluates a user's guess for the country of a given capital using a multi-tiered architecture.
 
@@ -408,7 +409,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
         }
 
     # TIER 2: Fuzzy Match
-    best_score = 0
+    best_score: float = 0.0
     best_match_country = None
     for valid_country in lower_valid_countries:
         score = fuzz.token_sort_ratio(normalized_user, valid_country)
@@ -501,7 +502,7 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 # --- Feature 2: Fun Fact Generator ---
 
 
-def get_fun_fact(country_name):
+def get_fun_fact(country_name: str) -> str:
     """
     Fetches a random fun fact from the DB, or generates them on-the-fly if empty.
     
@@ -579,7 +580,7 @@ def get_fun_fact(country_name):
 # --- Feature 3: Dynamic Quiz Generator ---
 
 
-def generate_ai_quiz(topic_name):
+def generate_ai_quiz(topic_name: str) -> list[dict[str, Any]] | dict[str, str]:
     """
     Fetches 10 random pre-generated quiz questions from the database.
     

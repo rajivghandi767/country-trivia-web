@@ -6,7 +6,7 @@ class Country(models.Model):
     capital = models.CharField(max_length=100)
     continent = models.CharField(max_length=50)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -24,14 +24,14 @@ class CountryFunFact(models.Model):
     source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="jenkins")
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.country.name}: {self.fact_text[:50]}..."
 
 
 class QuizTopic(models.Model):
     name = models.CharField(max_length=100, unique=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
@@ -45,7 +45,7 @@ class QuizQuestion(models.Model):
     fun_fact = models.TextField()
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.question_text
 
 
@@ -64,7 +64,7 @@ class ReportedIssue(models.Model):
     resolved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
-    def __str__(self):
+    def __str__(self) -> str:
         return (
             f"{self.get_issue_type_display()} - {self.created_at.strftime('%m/%d/%Y')}"
         )

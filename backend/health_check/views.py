@@ -1,4 +1,4 @@
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpRequest
 from django.views.decorators.http import require_http_methods
 from django.views.decorators.csrf import csrf_exempt
 from django.db import connection
@@ -9,11 +9,12 @@ import os
 
 @csrf_exempt
 @require_http_methods(["GET"])
-def health_detailed(request):
+def health_detailed(request: HttpRequest) -> JsonResponse:
     """
     Comprehensive health check for production monitoring
     """
-    health_data = {
+    from typing import Any
+    health_data: dict[str, Any] = {
         "status": "healthy",
         "timestamp": time.time(),
         "service": "trivia-backend",
@@ -54,7 +55,7 @@ def health_detailed(request):
 
 @csrf_exempt
 @require_http_methods(["GET"])
-def health_simple(request):
+def health_simple(request: HttpRequest) -> JsonResponse:
     """
     Simple health check for load balancers
     """

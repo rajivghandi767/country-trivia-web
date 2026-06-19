@@ -54,7 +54,9 @@ MEDIA_ROOT = BASE_DIR / "mediafiles"
 POSTGRES_HOST = os.getenv("POSTGRES_HOST")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT")
 
-if is_service_available(POSTGRES_HOST, POSTGRES_PORT):
+if is_service_available(
+    str(os.getenv("POSTGRES_HOST")), int(os.getenv("POSTGRES_PORT") or 5432)
+):
     print(f"✅ Connected to Postgres at {POSTGRES_HOST}:{POSTGRES_PORT}")
     DATABASES = {
         "default": {
@@ -71,7 +73,7 @@ else:
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.sqlite3",
-            "NAME": BASE_DIR / "db.sqlite3",
+            "NAME": str(BASE_DIR / "db.sqlite3"),
         }
     }
 

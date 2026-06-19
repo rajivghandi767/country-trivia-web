@@ -4,7 +4,7 @@ from django.urls import reverse
 from trivia.models import QuizTopic, QuizQuestion
 
 class AIQuizTests(TestCase):
-    def setUp(self):
+    def setUp(self) -> None:
         self.client = APIClient()
         self.topic = QuizTopic.objects.create(name="World Geography")
         self.question = QuizQuestion.objects.create(
@@ -23,7 +23,7 @@ class AIQuizTests(TestCase):
                 fun_fact="Fact"
             )
 
-    def test_generate_quiz(self):
+    def test_generate_quiz(self) -> None:
         response = self.client.get('/api/ai-quiz/generate/?topic=World Geography')
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -32,7 +32,7 @@ class AIQuizTests(TestCase):
         self.assertNotIn('funFact', data[0])
         self.assertIn('options', data[0])
 
-    def test_check_answer_correct(self):
+    def test_check_answer_correct(self) -> None:
         response = self.client.post(f'/api/ai-quiz/{self.question.id}/check-answer/', {'user_answer': 'Paris'})
         self.assertEqual(response.status_code, 200)
         data = response.json()
@@ -40,7 +40,7 @@ class AIQuizTests(TestCase):
         self.assertEqual(data['correct_answer'], 'Paris')
         self.assertEqual(data['fun_fact'], 'Paris is known as the city of light.')
 
-    def test_check_answer_incorrect(self):
+    def test_check_answer_incorrect(self) -> None:
         response = self.client.post(f'/api/ai-quiz/{self.question.id}/check-answer/', {'user_answer': 'London'})
         self.assertEqual(response.status_code, 200)
         data = response.json()
