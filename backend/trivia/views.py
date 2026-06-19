@@ -21,14 +21,21 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         """
         Dynamically limits and shuffles the queryset based on API parameters.
-        20-question quiz length while ensuring a fresh
-        set of questions every time a user starts a new game.
+        
+        Why we shuffle here instead of the frontend:
+        - Security & Fairness: Sending all 190+ countries to the client makes it trivial to cheat by inspecting network traffic.
+        - Performance: Transferring only 20 records reduces payload size drastically, improving load times on mobile connections.
+        
+        How the shuffle works:
+        - The `order_by("?")` translates to `ORDER BY RANDOM()` in Postgres.
+        - While `ORDER BY RANDOM()` can be slow on very large tables, our Country table is small (~190 rows), 
+          making this approach acceptable and efficient enough for our use case without needing complex caching.
         """
         queryset = super().get_queryset()
         shuffle = self.request.query_params.get("shuffle", "false").lower() == "true"
 
         if shuffle:
-            # Order randomly ('?') and slice to exactly 20 results
+            # Order randomly ('?') and slice to exactly 20 results for a standard quiz length
             return queryset.order_by("?")[:20]
 
         return queryset
@@ -37,6 +44,19 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     def check_answer(self, request, pk=None):
         """
         Grades user answers and harvests AI-generated feedback into the database.
+        
+        This is a complex endpoint that acts as a bridge between the user's input, 
+        the AI grading service, and our persistence layer.
+        
+        Why this is a POST request:
+        - State Change: It potentially creates new `CountryFunFact` records (JIT harvesting).
+        - Security: User answers might contain sensitive or complex strings that are safer in a POST body than a GET URL.
+        
+        Architecture Flow:
+        1. Extract the user answer and determine the current game mode.
+        2. Delegate the grading logic to the isolated `ai_service` module.
+        3. If the AI graded the answer, intercept any extra facts it generated and save them asynchronously.
+        4. Strip the extra facts from the response (to save bandwidth) and return the graded result.
         """
         country = self.get_object()
         user_answer = request.data.get("user_answer", "").strip()
@@ -47,7 +67,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                 {"error": "No answer provided."}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # 1. Dispatch grading based on mode
+        # 1. Dispatch grading based on mode. This keeps the view thin and delegates business logic.
         if game_mode == "capital":
             result = ai_service.grade_capital_answer(
                 country.name, country.capital, user_answer

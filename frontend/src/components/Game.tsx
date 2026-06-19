@@ -136,6 +136,19 @@ const Game = () => {
     setFunFact(q.funFact || null);
   };
 
+  /**
+   * Core Game Logic: Processing a user's answer
+   * 
+   * This is the most complex function in the component. It handles:
+   * 1. State Management: Preventing double-submissions using `isAnswered`.
+   * 2. Skip Logic: If the user submits an empty string, it treats it as a "Skip", fetches a fun fact, and reveals the answer.
+   * 3. Parallel Async Calls: Uses `Promise.all` to fetch the grading result AND the fun fact concurrently. 
+   *    This halves the wait time for the user compared to awaiting them sequentially.
+   * 4. Error Handling: Catches network errors and updates the UI gracefully without crashing.
+   * 
+   * @param answerToSubmit The raw string entered by the user.
+   * @param activeGameData The current list of questions (could be Countries or AIQuestions).
+   */
   const processAnswer = async (
     answerToSubmit: string,
     activeGameData: GameQuestion[],

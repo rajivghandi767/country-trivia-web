@@ -7,6 +7,15 @@ const API_URL = import.meta.env.VITE_API_URL + '/api/';
  * A robust fetch function to handle API requests, returning a standardized response.
  * @param endpoint The API endpoint to call (e.g., 'trivia/')
  * @param options Standard RequestInit options for fetch.
+ * 
+ * Architecture Note:
+ * This wrapper centralizes all our fetch logic, providing a uniform way to handle errors
+ * and parse responses. 
+ * - Error Handling: Instead of throwing exceptions that might crash the UI, we return a 
+ *   standardized `ApiResponse` interface `{ data, error, status }`. This allows components 
+ *   to gracefully render error states (like the ⚠️ UI in the Game component) without 
+ *   needing scattered try/catch blocks.
+ * - Environment Isolation: Automatically attaches the correct API base URL based on the environment (dev vs prod).
  */
 async function fetchApi<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
   if (!import.meta.env.VITE_API_URL) {

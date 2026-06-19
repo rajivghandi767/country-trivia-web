@@ -109,7 +109,18 @@ def get_all_capitals_map():
 
 
 def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4096):
-    """Centralized helper to interact with Gemini API and return parsed JSON."""
+    """
+    Centralized helper to interact with the Gemini API and return parsed JSON.
+    
+    Why we need this:
+    - Consistency: Enforces the same generation config (like enforcing JSON output) across all AI calls.
+    - Error Handling: Centralizes the stripping of markdown code blocks (` ```json `) which LLMs often prepend
+      even when instructed to return raw JSON.
+      
+    How it works:
+    - Configures Gemini to use `application/json` as the `response_mime_type`.
+    - Generates the text, strips markdown artifacts, and safely parses the string into a Python dictionary.
+    """
     generation_config = {
         "temperature": temperature,
         "top_p": 1,
@@ -244,6 +255,10 @@ def grade_capital_answer(country_name, correct_capitals_str, user_answer_str):
         }
 
     # Check Redis cache for identical historical AI grading evaluations to bypass the LLM entirely
+    # Why cache?: LLM calls are expensive and slow (1-3 seconds). If a user guesses "Pretoria" for "South Africa",
+    # the grading result will always be the same. 
+    # How it works: We create a unique cache key by hashing the country name and the user's answer.
+    # If the key exists, we return the cached JSON immediately, effectively turning an LLM call into an O(1) DB lookup.
     safe_user = hashlib.md5(user_answer_str.strip().lower().encode()).hexdigest()
     safe_country = hashlib.md5(country_name.strip().lower().encode()).hexdigest()
     cache_key = f"ai_capital_{safe_country}_{safe_user}"
@@ -487,7 +502,21 @@ def grade_country_answer(correct_country_name, correct_capitals_str, user_answer
 
 
 def get_fun_fact(country_name):
-    """Fetches a random fun fact from the DB, or generates them on-the-fly if empty."""
+    """
+    Fetches a random fun fact from the DB, or generates them on-the-fly if empty.
+    
+    This function implements "Just-In-Time (JIT) Harvesting".
+    Why JIT Harvesting?: Pre-generating facts for all 190+ countries would consume massive API credits upfront
+    and store data that might never be requested. JIT Harvesting defers the API cost until a user actually
+    interacts with a specific country.
+    
+    How it works:
+    1. Checks the local Postgres database for existing facts for the requested country.
+    2. If found, returns a random fact immediately (0 latency, 0 API cost).
+    3. If not found, calls the LLM to generate exactly 3 facts.
+    4. Saves all 3 facts to the database so future requests for this country hit the database instead of the LLM.
+    5. Returns the first newly generated fact to the user.
+    """
     try:
         # 1. Check the database first
         country = Country.objects.get(name=country_name)
@@ -551,7 +580,14 @@ def get_fun_fact(country_name):
 
 
 def generate_ai_quiz(topic_name):
-    """Fetches 10 random pre-generated quiz questions from the database."""
+    """
+    Fetches 10 random pre-generated quiz questions from the database.
+    
+    Unlike JIT Harvesting (used in get_fun_fact), quizzes are pre-generated offline.
+    Why?: Quiz generation is highly complex. The LLM must ensure varied questions, 4 plausible options per question,
+    and accurately identify the correct answer. This takes too long (10-15 seconds) to do synchronously while
+    the user waits. Therefore, we pre-generate a pool of questions asynchronously and just query them here.
+    """
     try:
         # Fetch the topic (case-insensitive match)
         topic = QuizTopic.objects.get(name__iexact=topic_name)
