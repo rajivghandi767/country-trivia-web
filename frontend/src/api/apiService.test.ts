@@ -1,9 +1,16 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import apiService from './apiService';
 
 global.fetch = vi.fn();
 
 describe('apiService.aiQuiz', () => {
+  beforeEach(() => {
+    vi.stubEnv('VITE_API_URL', 'http://localhost');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
   it('generate does not contain sensitive answers', async () => {
     const mockData = [
       { id: 1, question: 'Q1', options: ['A', 'B'] }
