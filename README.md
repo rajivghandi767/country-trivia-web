@@ -102,16 +102,13 @@ This section details how to replicate this environment locally. Everything is fu
 
 **Note on Gemini API:** A Gemini API key is **not required** for local development. The local seed data scripts handle populating the database with enough mock/cached data for development and testing purposes.
 
+> ⚠️ **Architecture Note:** To ensure strict parity with the production environment and eliminate local dependency issues, this project is exclusively containerized. Please ensure you have Docker installed before proceeding.
+
 ### Prerequisites
 
-**For Docker Setup (Recommended):**
 - 🐳 Docker & Docker Compose
 
-**For Manual Setup:**
-- 🐍 Python 3.x
-- 🟢 Node.js & npm
-
-### Option 1: Docker (Recommended)
+### Getting Started
 
 Local `docker-compose.yml` and `Dockerfile` configurations are already set to build directly from the source code folder for local development rather than pulling registry images. The `docker-compose.yml` is hardcoded to use `.env.example`, so absolutely no environment configuration is required.
 
@@ -124,28 +121,6 @@ docker compose up -d --build
 **Accessing Local Services:**
 - Frontend: `http://localhost:5173`
 - Backend API: `http://localhost:8000`
-
-### Option 2: Manual Setup (Non-Docker)
-
-If you prefer running the servers manually without Docker:
-
-**1. Start the Backend API:**
-```bash
-cd backend
-python -m venv venv
-source venv/bin/activate
-pip install -r dev-requirements.txt
-python manage.py migrate
-python manage.py seed_data
-python manage.py runserver
-```
-
-**2. Start the Frontend SPA:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
 
 ---
 

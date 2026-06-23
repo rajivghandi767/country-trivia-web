@@ -14,8 +14,10 @@ Thumbs.db
 
 # Ignore virtual environments
 venv/
+.venv/
 .env/
 env/
+.*_cache/
 
 # Backend (Django DRF) specific
 migrations/
