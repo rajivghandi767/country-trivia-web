@@ -90,6 +90,10 @@ Integrating Large Language Models (LLMs) like Gemini AI into a real-time web app
 This project is continuously deployed to my [Home Lab](https://github.com/rajivghandi767/homelab-iac) environment running on a Raspberry Pi 4B, sitting behind a heavily segmented Ubiquiti network.
 
 - **Zero-Trust Network Routing**: Incoming public traffic is proxied through Cloudflare to a UXG-Fiber Gateway, terminating at Nginx Proxy Manager within a strict Homelab VLAN. This prevents lateral access to other subnets.
+> [!NOTE]
+> **CI/CD Evolution:** This project was recently migrated from a centralized Jenkins/JVM monolith to a decentralized **GitHub Actions** edge runner to optimize compute overhead and security. 
+> The legacy Groovy pipelines have been preserved for historical context in the [`archive/jenkins-pipeline`](https://github.com/rajivghandi767/country-trivia-web/tree/archive/jenkins-pipeline) branch.
+
 - **Automated CI/CD**: GitHub Actions watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Scheduled deployments run daily at `04:15 AM` EST, followed by an automated data generation pipeline at `04:45 AM` EST. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
 - **Secure Secrets & Data Tiering**: API keys (like the Gemini API key) and database credentials are dynamically injected at runtime via HashiCorp Vault. The PostgreSQL database operates on a completely isolated `database` Docker network, ensuring the data layer is fully abstracted from public ingress.
 - **Observability**: Real-time application metrics and container health are continuously scraped by Prometheus and visualized on customized Grafana dashboards.
