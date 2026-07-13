@@ -57,7 +57,7 @@ This project demonstrates my self-taught journey into software engineering—hig
 
 - 🐘 PostgreSQL & Redis (Isolated Database Network)
 - 🐳 Docker & Docker Compose
-- 🤖 Jenkins (CI/CD)
+- 🤖 GitHub Actions (CI/CD)
 - 🔐 HashiCorp Vault (Secrets Management)
 - 🌐 Nginx Proxy Manager (Reverse Proxy) & Cloudflare
 - 📈 Prometheus, Grafana, & Alertmanager
@@ -79,7 +79,7 @@ Building this application required solving several interesting technical challen
 
 Integrating Large Language Models (LLMs) like Gemini AI into a real-time web application introduces immense latency (5-10s per request) and variable API costs. To achieve a zero-latency user experience, this app implements **Multi-Tiered Heuristics & Materialized Pre-Computation**:
 
-1. **Background Materialization:** The `generate_fun_facts` and `generate_quiz_questions` scripts run asynchronously via Cron/Jenkins. They harvest AI responses during off-peak hours and store them locally, completely decoupling the slow AI generation from the user's web request lifecycle.
+1. **Background Materialization:** The `generate_fun_facts` and `generate_quiz_questions` scripts run asynchronously via GitHub Actions Cron. They harvest AI responses during off-peak hours and store them locally, completely decoupling the slow AI generation from the user's web request lifecycle.
 2. **Deterministic & Fuzzy Graders:** User answers are first evaluated using `O(1)` lookup maps (cached indefinitely in Redis) and Levenshtein distance algorithms (RapidFuzz), instantly grading 95% of answers without touching the AI.
 3. **Memoized LLM Fallback:** When semantic edge cases necessitate an actual AI evaluation, the exact prompt, answer, and result are permanently cached in Redis via an MD5 hash. Identical future guesses bypass the API entirely, capping financial costs and guaranteeing sub-second grading.
 
@@ -90,7 +90,7 @@ Integrating Large Language Models (LLMs) like Gemini AI into a real-time web app
 This project is continuously deployed to my [Home Lab](https://github.com/rajivghandi767/homelab-iac) environment running on a Raspberry Pi 4B, sitting behind a heavily segmented Ubiquiti network.
 
 - **Zero-Trust Network Routing**: Incoming public traffic is proxied through Cloudflare to a UXG-Fiber Gateway, terminating at Nginx Proxy Manager within a strict Homelab VLAN. This prevents lateral access to other subnets.
-- **Automated CI/CD**: Jenkins watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Scheduled deployments run daily at `04:15 AM` EST, followed by an automated data generation pipeline at `04:45 AM` EST. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
+- **Automated CI/CD**: GitHub Actions watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Scheduled deployments run daily at `04:15 AM` EST, followed by an automated data generation pipeline at `04:45 AM` EST. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
 - **Secure Secrets & Data Tiering**: API keys (like the Gemini API key) and database credentials are dynamically injected at runtime via HashiCorp Vault. The PostgreSQL database operates on a completely isolated `database` Docker network, ensuring the data layer is fully abstracted from public ingress.
 - **Observability**: Real-time application metrics and container health are continuously scraped by Prometheus and visualized on customized Grafana dashboards.
 
