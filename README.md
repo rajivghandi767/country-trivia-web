@@ -139,17 +139,6 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ---
 
-## 📬 Contact
-
-**Rajiv Wallace**  
-Self-taught Software Engineer based in NYC. Aviation enthusiast, F1 fanatic, and avid traveler transitioning into tech.
-
-- **LinkedIn**: [linkedin.com/in/rajiv-wallace](https://www.linkedin.com/in/rajiv-wallace)
-- **GitHub**: [@rajivghandi767](https://github.com/rajivghandi767)
-- **Email**: [dev@rajivwallace.com](mailto:dev@rajivwallace.com)
-
----
-
 ## 📬 Let's Connect
 
 **Rajiv Wallace**  
