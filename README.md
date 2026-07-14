@@ -91,7 +91,7 @@ This project is continuously deployed to my [Home Lab](https://github.com/rajivg
 
 - **Zero-Trust Network Routing**: Incoming public traffic is proxied through Cloudflare to a UXG-Fiber Gateway, terminating at Nginx Proxy Manager within a strict Homelab VLAN. This prevents lateral access to other subnets.
 > [!NOTE]
-> **CI/CD Evolution:** This project was recently migrated from a centralized Jenkins/JVM monolith to a decentralized **GitHub Actions** edge runner to optimize compute overhead and security. 
+> **CI/CD Evolution:** This project is deployed using a decentralized **GitHub Actions** edge runner, having migrated from a legacy Jenkins/JVM monolith to optimize compute overhead and security. 
 > The legacy Groovy pipelines have been preserved for historical context in the [`archive/jenkins-pipeline`](https://github.com/rajivghandi767/country-trivia-web/tree/archive/jenkins-pipeline) branch.
 
 - **Automated CI/CD**: GitHub Actions watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Scheduled deployments run daily at `04:15 AM` EST, followed by an automated data generation pipeline at `04:45 AM` EST. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
