@@ -2,7 +2,7 @@ name: AI Data Generation
 
 on:
   schedule:
-    - cron: '45 7 * * *'
+    - cron: '45 8 * * *'
   workflow_dispatch:
 
 env:
