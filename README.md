@@ -46,6 +46,7 @@ This project demonstrates my self-taught journey into software engineering—hig
 - 🐍 Python
 - 🚀 Django & Django REST Framework
 - 🤖 Google Generative AI (Gemini API)
+- ⚡ uv (Deterministic Package & Dependency Management)
 
 ### **Frontend**
 
