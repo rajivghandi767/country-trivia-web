@@ -142,10 +142,10 @@ jobs:
           if [ "${{ steps.deploy.outputs.status }}" == "UPDATED" ]; then
               printf -v DESC ":unicorn: **${{ env.APP_NAME }} Update Deployed**\n**:new: New Version Live:**\n• **Tag:** ${{ github.event.inputs.TAG_TO_DEPLOY || 'latest' }}\n• **Backend:** ${{ env.IMAGE_BACKEND }}\n• **Nginx (SPA + Proxy):** ${{ env.IMAGE_NGINX }}\n\n:bar_chart: **Status:** Healthy\n:clock4: **Time:** $TIMESTAMP"
               PAYLOAD=$(jq -n --arg title "🚀 Deployment Successful" \
-
                               --arg desc "$DESC" \
                               --argjson color ${{ env.DISCORD_SUCCESS_COLOR }} \
                               '{embeds: [{title: $title, description: $desc, color: $color}]}')
+
           else
               printf -v DESC ":shield: **${{ env.APP_NAME }} Up to Date**\nNo new code changes found for tag: **${{ github.event.inputs.TAG_TO_DEPLOY || 'latest' }}**.\nRunning services remain unchanged.\n\n:clock4: **Time:** $TIMESTAMP"
               PAYLOAD=$(jq -n --arg title "✅ Check Complete: No Changes" \
