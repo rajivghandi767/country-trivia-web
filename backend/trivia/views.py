@@ -2,11 +2,14 @@ from __future__ import annotations
 import logging
 from typing import Any
 from django.db.models import QuerySet
-from rest_framework import viewsets, status
+from django.shortcuts import get_object_or_404
+from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.request import Request
-from .models import Country, CountryFunFact, ReportedIssue
+from rest_framework.throttling import ScopedRateThrottle
+from .constants import SHUFFLE_COUNTRY_LIMIT
+from .models import Country, CountryFunFact, QuizQuestion, ReportedIssue
 from .serializers import CountrySerializer, ReportedIssueSerializer
 from . import ai_service
 
@@ -21,6 +24,11 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     # Explicit ordering satisfies DRF pagination requirements
     queryset = Country.objects.all().order_by("id")
     serializer_class = CountrySerializer
+
+    def get_serializer_context(self) -> dict[str, Any]:
+        context: dict[str, Any] = dict(super().get_serializer_context())
+        context["game_mode"] = self.request.query_params.get("mode")
+        return context
 
     def get_queryset(self) -> QuerySet[Country]:
         """
@@ -39,15 +47,16 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         shuffle = self.request.query_params.get("shuffle", "false").lower() == "true"
 
         if shuffle:
-            # Order randomly ('?') and slice to exactly 20 results for a standard quiz length
-            return queryset.order_by("?")[:20]
+            # Order randomly ('?') and slice to exactly SHUFFLE_COUNTRY_LIMIT results for a standard quiz length
+            return queryset.order_by("?")[:SHUFFLE_COUNTRY_LIMIT]
 
         return queryset
 
     @action(detail=True, methods=["post"], url_path="check-answer")
     def check_answer(self, request: Request, pk: str | None = None) -> Response:
         """
-        Grades user answers and harvests AI-generated feedback into the database.
+        Grades user answers (or handles skipped turns) and harvests AI-generated
+        feedback into the database, returning the fun fact in the same round-trip.
         
         This is a complex endpoint that acts as a bridge between the user's input, 
         the AI grading service, and our persistence layer.
@@ -57,14 +66,38 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         - Security: User answers might contain sensitive or complex strings that are safer in a POST body than a GET URL.
         
         Architecture Flow:
-        1. Extract the user answer and determine the current game mode.
+        1. Extract the user answer (or skip flag) and determine the current game mode.
         2. Delegate the grading logic to the isolated `ai_service` module.
         3. If the AI graded the answer, intercept any extra facts it generated and save them asynchronously.
-        4. Strip the extra facts from the response (to save bandwidth) and return the graded result.
+        4. Strip the extra facts from the response, attach a fun fact, and return the unified result.
         """
         country = self.get_object()
-        user_answer = request.data.get("user_answer", "").strip()
-        game_mode = request.data.get("game_mode", "capital")
+        payload = request.data if isinstance(request.data, dict) else {}
+        user_answer = str(payload.get("user_answer", "")).strip()
+        game_mode = str(payload.get("game_mode", "capital"))
+        is_skipped = bool(payload.get("is_skipped", False))
+
+        if game_mode not in ("capital", "country"):
+            return Response(
+                {"error": "Invalid game mode."}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if is_skipped:
+            primary_capital = country.capital.split("|")[0]
+            feedback_message = (
+                f"The capital of {country.name} is {primary_capital}"
+                if game_mode == "capital"
+                else f"{primary_capital} is the capital of {country.name}"
+            )
+            return Response(
+                {
+                    "is_correct": False,
+                    "is_skipped": True,
+                    "feedback_message": feedback_message,
+                    "fun_fact": ai_service.get_fun_fact(country.name),
+                    "country_name": country.name,
+                }
+            )
 
         if not user_answer:
             return Response(
@@ -76,13 +109,9 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
             result = ai_service.grade_capital_answer(
                 country.name, country.capital, user_answer
             )
-        elif game_mode == "country":
+        else:
             result = ai_service.grade_country_answer(
                 country.name, country.capital, user_answer
-            )
-        else:
-            return Response(
-                {"error": "Invalid game mode."}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # 2. Harvesting Logic: Save AI feedback as facts for future use
@@ -91,7 +120,10 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                 CountryFunFact.objects.get_or_create(
                     country=country,
                     fact_text=result["feedback_message"],
-                    defaults={"is_ai_generated": True, "source": "user"},
+                    defaults={
+                        "is_ai_generated": True,
+                        "source": CountryFunFact.SourceChoices.USER,
+                    },
                 )
 
             if result.get("extra_facts"):
@@ -100,7 +132,10 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                     _, created = CountryFunFact.objects.get_or_create(
                         country=country,
                         fact_text=fact_text,
-                        defaults={"is_ai_generated": True, "source": "user"},
+                        defaults={
+                            "is_ai_generated": True,
+                            "source": CountryFunFact.SourceChoices.USER,
+                        },
                     )
                     if created:
                         harvest_count += 1
@@ -113,6 +148,8 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
             # Remove extra_facts from response before sending to frontend
             result.pop("extra_facts", None)
 
+        result["fun_fact"] = ai_service.get_fun_fact(country.name)
+        result["country_name"] = country.name
         return Response(result)
 
     @action(detail=True, methods=["get"], url_path="fun-fact")
@@ -124,7 +161,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         fact_text = ai_service.get_fun_fact(country.name)
 
         return Response(
-            {"fact": fact_text, "fun_fact": fact_text, "funFact": fact_text}
+            {"fact": fact_text, "fun_fact": fact_text}
         )
 
 
@@ -145,11 +182,9 @@ class AIQuizViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["post"], url_path="check-answer")
     def check_answer(self, request: Request, pk: str | None = None) -> Response:
-        from django.shortcuts import get_object_or_404
-        from .models import QuizQuestion
-
         question = get_object_or_404(QuizQuestion, pk=pk)
-        user_answer = request.data.get("user_answer", "").strip().lower()
+        payload = request.data if isinstance(request.data, dict) else {}
+        user_answer = str(payload.get("user_answer", "")).strip().lower()
         correct_answer = question.correct_answer.strip().lower()
         
         is_correct = user_answer == correct_answer
@@ -161,10 +196,14 @@ class AIQuizViewSet(viewsets.ViewSet):
         })
 
 
-class ReportedIssueViewSet(viewsets.ModelViewSet):
-    http_method_names = ["get", "post", "head", "options"]
+class ReportedIssueViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     """
-    Handles the user bug reporting system.
+    Handles the user bug reporting system (POST-only with rate limiting).
     """
+
+    http_method_names = ["post", "options"]
     queryset = ReportedIssue.objects.all().order_by("-created_at")
     serializer_class = ReportedIssueSerializer
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "contact"
+

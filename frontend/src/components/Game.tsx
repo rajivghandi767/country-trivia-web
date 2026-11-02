@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { Country, AIAnswerResponse, AIQuestion, GameMode } from "@/types";
+import { useState } from "react";
+import { Country, AIQuestion, GameMode } from "@/types";
 import apiService from "@/api/apiService";
 import useApi from "@/hooks/useApi";
 import { cn } from "@/utils/styleUtils";
@@ -18,7 +18,22 @@ type GameQuestion = Country | AIQuestion;
 const HIGH_SCORE_KEYS = {
   capital: "trivia-high-score-capital",
   country: "trivia-high-score-country",
-};
+} as const;
+
+const CARD_BASE_CLASSES =
+  "max-w-xl mx-auto shadow-xl bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark border-2 border-gray-200 dark:border-neutral-800 transition-colors duration-200";
+
+function loadInitialHighScores(): { capital: number; country: number } {
+  if (typeof window === "undefined") {
+    return { capital: 0, country: 0 };
+  }
+  const capitalScore = localStorage.getItem(HIGH_SCORE_KEYS.capital);
+  const countryScore = localStorage.getItem(HIGH_SCORE_KEYS.country);
+  return {
+    capital: capitalScore ? parseInt(capitalScore, 10) : 0,
+    country: countryScore ? parseInt(countryScore, 10) : 0,
+  };
+}
 
 const Game = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -30,11 +45,14 @@ const Game = () => {
     message: string | null;
   }>({ type: null, message: null });
   const [isAnswered, setIsAnswered] = useState(false);
-  const [highScores, setHighScores] = useState({ capital: 0, country: 0 });
+  const [highScores, setHighScores] = useState(loadInitialHighScores);
   const [funFact, setFunFact] = useState<string | null>(null);
+  const [revealedCountryName, setRevealedCountryName] = useState<
+    string | undefined
+  >(undefined);
   const [aiQuizParams, setAiQuizParams] = useState<{
     topic: string;
-    fresh: boolean;
+    runId: number;
   } | null>(null);
   const [gameId, setGameId] = useState(0);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
@@ -44,8 +62,9 @@ const Game = () => {
     isLoading: isLoadingCountries,
     error: countriesError,
   } = useApi<Country[]>(
-    () => apiService.trivia.getShuffledCountries(),
-    [gameId],
+    () => apiService.trivia.getShuffledCountries(gameMode),
+    [gameId, gameMode],
+    { skip: gameMode === "ai-quiz" },
   );
 
   const {
@@ -53,90 +72,67 @@ const Game = () => {
     isLoading: isLoadingAiQuiz,
     error: aiQuizError,
   } = useApi<AIQuestion[]>(
-    () =>
-      apiService.aiQuiz.generate(
-        aiQuizParams?.topic || "",
-        aiQuizParams?.fresh,
-      ),
+    () => apiService.aiQuiz.generate(aiQuizParams?.topic ?? ""),
     [aiQuizParams],
     { skip: !aiQuizParams },
   );
 
-  const [gameData, setGameData] = useState<GameQuestion[]>([]);
+  const activeGameData: GameQuestion[] =
+    gameMode === "ai-quiz" ? (aiQuizData ?? []) : (countries ?? []);
 
-  useEffect(() => {
-    const capitalScore = localStorage.getItem(HIGH_SCORE_KEYS.capital);
-    const countryScore = localStorage.getItem(HIGH_SCORE_KEYS.country);
-    setHighScores({
-      capital: capitalScore ? parseInt(capitalScore, 10) : 0,
-      country: countryScore ? parseInt(countryScore, 10) : 0,
-    });
-  }, []);
-
-
-
-  const startGame = (mode: GameMode) => {
-    setGameData([]);
-    setGameMode(mode);
+  const resetTurnState = () => {
     setCurrentIndex(0);
     setScore(0);
     setUserAnswer("");
     setResult({ type: null, message: null });
     setIsAnswered(false);
     setFunFact(null);
+    setRevealedCountryName(undefined);
+  };
+
+  const startGame = (mode: GameMode) => {
+    resetTurnState();
+    setGameMode(mode);
     setAiQuizParams(null);
-    if (mode === "capital" || mode === "country") setGameId((id) => id + 1);
-  };
-
-  useEffect(() => {
-    if ((gameMode === "capital" || gameMode === "country") && countries)
-      setGameData(countries);
-  }, [countries, gameMode]);
-
-  const startAiQuiz = (topic: string, fresh: boolean = false) => {
-    setGameData([]);
-    setGameMode("ai-quiz");
-    setAiQuizParams({ topic, fresh });
-  };
-
-  useEffect(() => {
-    if (gameMode === "ai-quiz" && aiQuizData && !aiQuizError) {
-      setGameData(aiQuizData as AIQuestion[]);
-      setCurrentIndex(0);
-      setScore(0);
-      setUserAnswer("");
-      setResult({ type: null, message: null });
-      setIsAnswered(false);
-      setFunFact(null);
+    if (mode === "capital" || mode === "country") {
+      setGameId((id) => id + 1);
     }
-  }, [aiQuizData, aiQuizError, gameMode]);
+  };
+
+  const startAiQuiz = (topic: string) => {
+    resetTurnState();
+    setGameMode("ai-quiz");
+    setAiQuizParams((prev) => ({ topic, runId: (prev?.runId ?? 0) + 1 }));
+  };
 
   const handleAiQuizAnswer = async (
     option: string,
-    activeGameData: GameQuestion[],
+    questions: GameQuestion[],
   ) => {
     if (isAnswered) return;
     setIsAnswered(true);
-    
-    const q = activeGameData[currentIndex] as AIQuestion;
+
+    const q = questions[currentIndex] as AIQuestion;
     setFunFact("Loading result...");
-    
+
     try {
-      const result = await apiService.aiQuiz.checkAnswer(q.id, option);
-      if (result.error || !result.data) throw new Error(result.error || "Failed to grade");
-      
-      const { is_correct, correct_answer, fun_fact } = result.data;
-      
+      const response = await apiService.aiQuiz.checkAnswer(q.id, option);
+      if (response.error || !response.data) {
+        throw new Error(response.error ?? "Failed to grade");
+      }
+
+      const { is_correct, correct_answer, fun_fact } = response.data;
+
       setResult({
         type: is_correct ? "correct" : "incorrect",
         message: is_correct
           ? "Correct!"
           : `Incorrect 😔, the correct answer was ${correct_answer}`,
       });
-      
+
       if (is_correct) setScore((s) => s + 1);
       setFunFact(fun_fact || null);
-    } catch (err) {
+    } catch {
       setResult({
         type: "incorrect",
         message: "Error connecting to the grading server. Please try again.",
@@ -146,67 +142,48 @@ const Game = () => {
   };
 
   /**
-   * Core Game Logic: Processing a user's answer
-   * 
-   * This is the most complex function in the component. It handles:
-   * 1. State Management: Preventing double-submissions using `isAnswered`.
-   * 2. Skip Logic: If the user submits an empty string, it treats it as a "Skip", fetches a fun fact, and reveals the answer.
-   * 3. Parallel Async Calls: Uses `Promise.all` to fetch the grading result AND the fun fact concurrently. 
-   *    This halves the wait time for the user compared to awaiting them sequentially.
-   * 4. Error Handling: Catches network errors and updates the UI gracefully without crashing.
-   * 
-   * @param answerToSubmit The raw string entered by the user.
-   * @param activeGameData The current list of questions (could be Countries or AIQuestions).
+   * Core Game Logic: Processing a user's answer via a single Smart-Server round-trip.
+   *
+   * Delegates both answer evaluation (or skip reveal) and fun-fact retrieval to a single
+   * POST `/api/trivia/{id}/check-answer/` request, keeping the client dumb and eliminating
+   * answer-key exposure in the browser.
    */
   const processAnswer = async (
     answerToSubmit: string,
-    activeGameData: GameQuestion[],
+    questions: GameQuestion[],
   ) => {
     if (isAnswered) return;
     setIsAnswered(true);
 
     const isSkipped = answerToSubmit.trim() === "";
-    const countryQuestion = activeGameData[currentIndex] as Country;
-    const capitalName = countryQuestion.capital.split("|")[0];
-    const countryName = countryQuestion.name;
+    const countryQuestion = questions[currentIndex] as Country;
     setFunFact("Loading fun fact...");
 
-    if (isSkipped) {
-      setResult({
-        type: null,
-        message:
-          gameMode === "capital"
-            ? `The capital of ${countryName} is ${capitalName}`
-            : `${capitalName} is the capital of ${countryName}`,
-      });
-      apiService.trivia
-        .getFunFact(countryQuestion.id)
-        .then((res) => {
-          if (res.data) setFunFact(res.data.fact);
-        })
-        .catch(() => setFunFact(null));
-      return;
-    }
-
     try {
-      const [answerResult, factResult] = await Promise.all([
-        apiService.trivia.checkAnswer(
-          countryQuestion.id,
-          answerToSubmit,
-          gameMode!,
-        ),
-        apiService.trivia.getFunFact(countryQuestion.id),
-      ]);
+      const answerResult = await apiService.trivia.checkAnswer(
+        countryQuestion.id,
+        answerToSubmit,
+        gameMode,
+        isSkipped,
+      );
 
-      if (answerResult.error) {
-        throw new Error(answerResult.error);
+      if (answerResult.error || !answerResult.data) {
+        throw new Error(answerResult.error ?? "Failed to grade answer");
       }
 
-      const aiResponse = answerResult.data as AIAnswerResponse;
+      const aiResponse = answerResult.data;
+      if (aiResponse.country_name) {
+        setRevealedCountryName(aiResponse.country_name);
+      }
 
-      if (aiResponse.is_correct) {
+      if (aiResponse.is_skipped || isSkipped) {
+        setResult({
+          type: null,
+          message: aiResponse.feedback_message,
+        });
+      } else if (aiResponse.is_correct) {
         setResult({ type: "correct", message: aiResponse.feedback_message });
-        setScore((s) => s + (aiResponse.points_awarded || 1));
+        setScore((s) => s + (aiResponse.points_awarded ?? 1));
       } else {
         setResult({
           type: "incorrect",
@@ -214,8 +191,8 @@ const Game = () => {
         });
       }
 
-      if (factResult.data) setFunFact(factResult.data.fact);
-    } catch (err) {
+      setFunFact(aiResponse.fun_fact ?? null);
+    } catch {
       setResult({
         type: "incorrect",
         message: "Error connecting to the grading server. Please try again.",
@@ -224,9 +201,9 @@ const Game = () => {
     }
   };
 
-  const handleNextQuestion = (activeGameData: GameQuestion[]) => {
+  const handleNextQuestion = (questions: GameQuestion[]) => {
     const nextIndex = currentIndex + 1;
-    if (nextIndex >= activeGameData.length && gameMode) {
+    if (nextIndex >= questions.length && gameMode) {
       if (gameMode === "capital" || gameMode === "country") {
         if (score > highScores[gameMode]) {
           localStorage.setItem(HIGH_SCORE_KEYS[gameMode], score.toString());
@@ -238,11 +215,12 @@ const Game = () => {
     setResult({ type: null, message: null });
     setUserAnswer("");
     setFunFact(null);
+    setRevealedCountryName(undefined);
     setCurrentIndex(nextIndex);
   };
 
-  const renderGameInterface = (activeGameData: GameQuestion[]) => {
-    const isGameOver = currentIndex >= activeGameData.length;
+  const renderGameInterface = (questions: GameQuestion[]) => {
+    const isGameOver = currentIndex >= questions.length;
     if (isGameOver) {
       return (
         <CardContent>
@@ -251,7 +229,7 @@ const Game = () => {
           </CardTitle>
           <div className="text-center mb-6">
             <p className="text-2xl mb-2 text-brand-light dark:text-brand-dark">
-              Your final score is: {score} / {activeGameData.length}
+              Your final score is: {score} / {questions.length}
             </p>
             {(gameMode === "capital" || gameMode === "country") && (
               <p className="text-lg opacity-60 text-brand-light dark:text-brand-dark">
@@ -263,11 +241,13 @@ const Game = () => {
             <Button
               size="lg"
               fullWidth
-              onClick={() =>
-                gameMode === "ai-quiz"
-                  ? startAiQuiz(aiQuizParams!.topic, true)
-                  : startGame(gameMode)
-              }
+              onClick={() => {
+                if (gameMode === "ai-quiz" && aiQuizParams) {
+                  startAiQuiz(aiQuizParams.topic);
+                } else {
+                  startGame(gameMode);
+                }
+              }}
             >
               Play Again
             </Button>
@@ -286,13 +266,13 @@ const Game = () => {
       );
     }
 
-    const currentQuestion = activeGameData[currentIndex];
-    let questionText =
+    const currentQuestion = questions[currentIndex];
+    const questionText =
       gameMode === "ai-quiz"
         ? (currentQuestion as AIQuestion).question
         : gameMode === "capital"
           ? `What is the capital of ${(currentQuestion as Country).name}?`
-          : `${(currentQuestion as Country).capital.split("|")[0]} is the capital of which country?`;
+          : `${(currentQuestion as Country).capital} is the capital of which country?`;
 
     return (
       <CardContent>
@@ -311,7 +291,7 @@ const Game = () => {
         <div className="flex justify-between items-center mb-4 text-sm opacity-60 text-brand-light dark:text-brand-dark">
           <span className="font-semibold">Score: {score}</span>
           <span>
-            Question: {currentIndex + 1} / {activeGameData.length}
+            Question: {currentIndex + 1} / {questions.length}
           </span>
         </div>
         <CardTitle as="h3" className="text-center mb-6 text-xl">
@@ -320,8 +300,9 @@ const Game = () => {
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            if (!isAnswered && userAnswer.trim())
-              processAnswer(userAnswer, activeGameData);
+            if (!isAnswered && userAnswer.trim()) {
+              void processAnswer(userAnswer, questions);
+            }
           }}
         >
           {gameMode === "ai-quiz" &&
@@ -334,7 +315,7 @@ const Game = () => {
                     variant="outline"
                     fullWidth
                     disabled={isAnswered}
-                    onClick={() => handleAiQuizAnswer(option, activeGameData)}
+                    onClick={() => void handleAiQuizAnswer(option, questions)}
                   >
                     {option}
                   </Button>
@@ -359,7 +340,7 @@ const Game = () => {
                 type="button"
                 fullWidth
                 variant="secondary"
-                onClick={() => processAnswer("", activeGameData)}
+                onClick={() => void processAnswer("", questions)}
               >
                 I don't know!🤷🏽
               </Button>
@@ -375,7 +356,7 @@ const Game = () => {
             size="lg"
             fullWidth
             className="mt-4 animate-fade-in"
-            onClick={() => handleNextQuestion(activeGameData)}
+            onClick={() => handleNextQuestion(questions)}
           >
             Next Question
           </Button>
@@ -438,7 +419,7 @@ const Game = () => {
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("Formula 1", true)}
+          onClick={() => startAiQuiz("Formula 1")}
         >
           F1 🏎️
         </Button>
@@ -446,7 +427,7 @@ const Game = () => {
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("English Premier League", true)}
+          onClick={() => startAiQuiz("English Premier League")}
         >
           English Premier League ⚽
         </Button>
@@ -454,7 +435,7 @@ const Game = () => {
           size="lg"
           variant="outline"
           fullWidth
-          onClick={() => startAiQuiz("Caribbean History", true)}
+          onClick={() => startAiQuiz("Caribbean History")}
         >
           Caribbean History 🏖️
         </Button>
@@ -462,79 +443,18 @@ const Game = () => {
     </CardContent>
   );
 
-  const GameWrapper = () => {
-    const cardBase =
-      "max-w-xl mx-auto shadow-xl bg-bg-light dark:bg-bg-dark text-brand-light dark:text-brand-dark border-2 border-gray-200 dark:border-neutral-800 transition-colors duration-200";
-
-    if (gameMode === "ai-quiz" && isLoadingAiQuiz) {
-      return (
-        <Card className={cardBase}>
-          <CardContent>
-            <div className="flex flex-col justify-center items-center py-12 min-h-75">
-              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-light dark:border-brand-dark mb-4"></div>
-              <p className="text-brand-light dark:text-brand-dark font-medium animate-pulse">
-                Generating your quiz...
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    if (gameMode === "ai-quiz" && aiQuizError) {
-      return (
-        <Card className={cardBase}>
-          <CardContent>
-            <div className="flex flex-col justify-center items-center py-12 min-h-75 text-center">
-              <div className="text-red-500 mb-4 text-5xl">⚠️</div>
-              <CardTitle as="h3" className="mb-2 text-xl font-bold">
-                AI Quizzes Currently Unavailable
-              </CardTitle>
-              <p className="opacity-70 mb-6 text-brand-light dark:text-brand-dark">
-                The AI service is currently down or rate-limited. Please try
-                again later.
-              </p>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setGameMode(null);
-                  setAiQuizParams(null);
-                }}
-              >
-                Back to Menu
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      );
-    }
-
-    const currentQuestionContext = gameData[currentIndex];
-    const reportCountryName =
-      gameMode === "capital" || gameMode === "country"
-        ? (currentQuestionContext as Country)?.name
-        : undefined;
-    const reportQuestionId =
-      gameMode === "ai-quiz"
-        ? (currentQuestionContext as AIQuestion)?.id
-        : undefined;
-
-    return (
-      <>
-        <Card className={cardBase}>
-          {!gameMode
-            ? renderModeSelection()
-            : renderGameInterface(gameData.length ? gameData : countries || [])}
-        </Card>
-        <ReportModal
-          isOpen={isReportModalOpen}
-          onClose={() => setIsReportModalOpen(false)}
-          countryName={reportCountryName}
-          questionId={reportQuestionId}
-        />
-      </>
-    );
-  };
+  const currentQuestionContext = activeGameData[currentIndex] as
+    | GameQuestion
+    | undefined;
+  const reportCountryName =
+    gameMode === "capital" || gameMode === "country"
+      ? (currentQuestionContext as Country | undefined)?.name ||
+        revealedCountryName
+      : undefined;
+  const reportQuestionId =
+    gameMode === "ai-quiz"
+      ? (currentQuestionContext as AIQuestion | undefined)?.id
+      : undefined;
 
   return (
     <Section id="game">
@@ -544,10 +464,70 @@ const Game = () => {
         data={countries}
         emptyMessage="Could not load trivia questions."
       >
-        {() => <GameWrapper />}
+        {() => {
+          if (gameMode === "ai-quiz" && isLoadingAiQuiz) {
+            return (
+              <Card className={CARD_BASE_CLASSES}>
+                <CardContent>
+                  <div className="flex flex-col justify-center items-center py-12 min-h-75">
+                    <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand-light dark:border-brand-dark mb-4"></div>
+                    <p className="text-brand-light dark:text-brand-dark font-medium animate-pulse">
+                      Generating your quiz...
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          if (gameMode === "ai-quiz" && aiQuizError) {
+            return (
+              <Card className={CARD_BASE_CLASSES}>
+                <CardContent>
+                  <div className="flex flex-col justify-center items-center py-12 min-h-75 text-center">
+                    <div className="text-red-500 mb-4 text-5xl">⚠️</div>
+                    <CardTitle as="h3" className="mb-2 text-xl font-bold">
+                      AI Quizzes Currently Unavailable
+                    </CardTitle>
+                    <p className="opacity-70 mb-6 text-brand-light dark:text-brand-dark">
+                      The AI service is currently down or rate-limited. Please
+                      try again later.
+                    </p>
+                    <Button
+                      variant="secondary"
+                      onClick={() => {
+                        setGameMode(null);
+                        setAiQuizParams(null);
+                      }}
+                    >
+                      Back to Menu
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          }
+
+          return (
+            <>
+              <Card className={CARD_BASE_CLASSES}>
+                {!gameMode
+                  ? renderModeSelection()
+                  : renderGameInterface(activeGameData)}
+              </Card>
+              <ReportModal
+                isOpen={isReportModalOpen}
+                onClose={() => setIsReportModalOpen(false)}
+                countryName={reportCountryName}
+                questionId={reportQuestionId}
+              />
+            </>
+          );
+        }}
       </DataLoader>
     </Section>
   );
 };
 
 export default Game;
+

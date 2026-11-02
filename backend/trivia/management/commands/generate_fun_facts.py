@@ -1,34 +1,37 @@
+from __future__ import annotations
+
 import json
+from typing import Any
+
 from django.core.management.base import BaseCommand
 from django.db import models
-from trivia.models import Country, CountryFunFact
+from django.db.models import QuerySet
 from trivia.ai_service import _generate_ai_json
+from trivia.constants import FACT_BATCH_SIZE, FACT_STOCK_LIMIT
+from trivia.models import Country, CountryFunFact
 
 
 class Command(BaseCommand):
     help = "Generates fun facts using Gemini AI and saves them to the database"
 
-    def handle(self, *args, **kwargs):
-        FACT_LIMIT = 25
-        BATCH_SIZE = 25
-
+    def handle(self, *args: Any, **kwargs: Any) -> None:
         # Prioritize countries that haven't reached the target limit
-        countries_to_process = (
+        countries_to_process: QuerySet[Country] = (
             Country.objects.annotate(fact_count=models.Count("fun_facts"))
-            .filter(fact_count__lt=FACT_LIMIT)
-            .order_by("fact_count")[:BATCH_SIZE]
+            .filter(fact_count__lt=FACT_STOCK_LIMIT)
+            .order_by("fact_count")[:FACT_BATCH_SIZE]
         )
 
         # Rolling Refresh: If all countries are full, pick a random batch to update
         if not countries_to_process:
             self.stdout.write(
-                f"♻️ All countries at capacity ({FACT_LIMIT}). Initiating rolling refresh..."
+                f"♻️ All countries at capacity ({FACT_STOCK_LIMIT}). Initiating rolling refresh..."
             )
             # Order by '?' picks random countries so the whole database refreshes evenly over time
-            countries_to_process = Country.objects.order_by("?")[:BATCH_SIZE]
+            countries_to_process = Country.objects.order_by("?")[:FACT_BATCH_SIZE]
         else:
             self.stdout.write(
-                f"📈 Filling stock. Target limit: {FACT_LIMIT} per country."
+                f"📈 Filling stock. Target limit: {FACT_STOCK_LIMIT} per country."
             )
 
         country_names = [c.name for c in countries_to_process]
@@ -54,7 +57,7 @@ class Command(BaseCommand):
                         country=country, fact_text=new_fact_text
                     ).exists():
                         # Rotation Logic: Delete the oldest fact if at capacity
-                        if country.fun_facts.count() >= FACT_LIMIT:
+                        if country.fun_facts.count() >= FACT_STOCK_LIMIT:
                             oldest_fact = country.fun_facts.order_by(
                                 "created_at"
                             ).first()
@@ -66,7 +69,7 @@ class Command(BaseCommand):
                             country=country,
                             fact_text=new_fact_text,
                             is_ai_generated=True,
-                            source="jenkins",
+                            source=CountryFunFact.SourceChoices.JENKINS,
                         )
                         self.stdout.write(
                             self.style.SUCCESS(f"Saved new fact for {country.name}")
@@ -80,3 +83,4 @@ class Command(BaseCommand):
 
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"Error generating facts: {e}"))
+

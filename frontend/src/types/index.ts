@@ -9,12 +9,14 @@ export interface Country {
   name: string;
   capital: string;
   continent: string;
-  
 }
 
 export interface AIAnswerResponse {
   is_correct: boolean;
   feedback_message: string;
+  is_skipped?: boolean;
+  fun_fact?: string;
+  country_name?: string;
   all_capitals_guessed?: boolean;
   correct_guesses?: string[];
   incorrect_guesses?: string[];
@@ -38,8 +40,18 @@ export interface AIQuestion {
 export type GameMode = "capital" | "country" | "ai-quiz" | null;
 
 export interface BugReportPayload {
-  issue_type: 'fact_error' | 'typo' | 'ui_bug' | 'other';
+  issue_type: "fact_error" | "typo" | "ui_bug" | "other";
   user_note: string;
   country_name?: string;
   question_id?: number;
+}
+
+export interface ReportedIssueResponse {
+  id: number;
+  issue_type: BugReportPayload["issue_type"];
+  user_note: string;
+  country_name?: string | null;
+  question_id?: number | null;
+  resolved: boolean;
+  created_at: string;
 }

@@ -1,3 +1,12 @@
+from __future__ import annotations
+
+from trivia.constants import (
+    CAPITAL_MAP_CACHE_TTL,
+    COMMON_COUNTRY_ALIASES,
+    COUNTRY_ALIASES_GROUPED,
+    FUZZY_MATCH_THRESHOLD,
+    QUIZ_QUESTION_COUNT,
+)
 from trivia.models import QuizTopic, CountryFunFact, Country
 import os
 import google.generativeai as genai
@@ -5,7 +14,7 @@ import logging
 import json
 import re
 import hashlib
-from typing import Any
+from typing import Any, cast
 from django.core.cache import cache
 from rapidfuzz import fuzz
 
@@ -40,34 +49,6 @@ else:
 
 # --- Shared Helpers & Normalization ---
 
-# 1. Define aliases grouped by the official name (easier to read and maintain)
-COUNTRY_ALIASES_GROUPED = {
-    "united states": ["usa", "us", "america", "united states of america"],
-    "united kingdom": ["uk", "great britain", "britain", "england"],
-    "saint vincent and the grenadines": ["saint vincent", "st vincent", "svg"],
-    "antigua and barbuda": ["antigua", "barbuda"],
-    "the bahamas": ["bahamas"],
-    "bosnia and herzegovina": ["bosnia", "herzegovina"],
-    "democratic republic of the congo": ["drc", "dr congo", "congo-kinshasa"],
-    "republic of the congo": ["congo-brazzaville", "congo republic"],
-    "dominican republic": ["dr"],
-    "sao tome and principe": ["sao tome", "principe"],
-    "trinidad and tobago": ["trinidad", "tobago"],
-    "united arab emirates": ["uae", "emirates"],
-    "central african republic": ["car"],
-    "the gambia": ["gambia"],
-    "saint kitts and nevis": ["saint kitts", "st kitts", "nevis"],
-    "cote d'ivoire": ["ivory coast"],
-    "north macedonia": ["macedonia"],
-}
-
-# 2. Dynamically flatten it into a fast lookup dictionary: {"usa": "united states", ...}
-COMMON_COUNTRY_ALIASES = {
-    alias: canonical_name
-    for canonical_name, aliases in COUNTRY_ALIASES_GROUPED.items()
-    for alias in aliases
-}
-
 
 def _normalize_string(s: str) -> str:
     """Removes punctuation and expands common abbreviations."""
@@ -88,7 +69,7 @@ def get_all_capitals_map() -> dict[str, list[str]]:
     same capital city name. To avoid full table scans on the Country model for every
     grading request, the resulting dictionary is cached in Redis with a 24-hour timeout.
     """
-    capital_map = cache.get("all_capitals_map")
+    capital_map: dict[str, list[str]] | None = cache.get("all_capitals_map")
     if capital_map is not None:
         return capital_map
 
@@ -101,7 +82,7 @@ def get_all_capitals_map() -> dict[str, list[str]]:
                 if c_name not in capital_map:
                     capital_map[c_name] = []
                 capital_map[c_name].append(country.name)
-        cache.set("all_capitals_map", capital_map, timeout=86400)
+        cache.set("all_capitals_map", capital_map, timeout=CAPITAL_MAP_CACHE_TTL)
         return capital_map
     except Exception as e:
         logger.error(f"Error building capital map (is DB migrated?): {e}")
@@ -131,11 +112,12 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
     }
     model = genai.GenerativeModel(
         model_name=str(ACTIVE_MODEL_NAME),
-        generation_config=generation_config,  # type: ignore
+        generation_config=generation_config,  # type: ignore[arg-type]
     )
     response = model.generate_content(prompt)
     response_text = response.text.strip().replace("```json", "").replace("```", "")
-    return json.loads(response_text)
+    return cast(dict[str, Any], json.loads(response_text))
+
 
 
 # --- Feature 1: "Guess the Capital" Grader ---
@@ -217,7 +199,7 @@ def grade_capital_answer(country_name: str, correct_capitals_str: str, user_answ
             best_score = score
             best_match_idx = i
 
-    if best_score >= 85:
+    if best_score >= FUZZY_MATCH_THRESHOLD:
         actual_capital_cased = correct_capitals_list[best_match_idx]
         shared_with = [
             c
@@ -237,7 +219,7 @@ def grade_capital_answer(country_name: str, correct_capitals_str: str, user_answ
             "missed_capitals": [
                 c
                 for c in correct_capitals_list
-                if fuzz.token_sort_ratio(normalized_user, _normalize_string(c)) < 85
+                if fuzz.token_sort_ratio(normalized_user, _normalize_string(c)) < FUZZY_MATCH_THRESHOLD
             ],
             "points_awarded": 1,
             "shared_capital_info": shared_with if shared_with else None,
@@ -264,12 +246,13 @@ def grade_capital_answer(country_name: str, correct_capitals_str: str, user_answ
     safe_country = hashlib.md5(country_name.strip().lower().encode()).hexdigest()
     cache_key = f"ai_capital_{safe_country}_{safe_user}"
 
-    cached_result = cache.get(cache_key)
+    cached_result: dict[str, Any] | None = cache.get(cache_key)
     if cached_result:
         logger.info(
             f"Returning cached AI capital grading for {country_name}. User: '{user_answer_str}'."
         )
         return cached_result
+
 
     shared_capitals_context = {
         cap: [c for c in all_capitals_map.get(cap.lower(), []) if c != country_name]
@@ -376,7 +359,7 @@ def grade_country_answer(correct_country_name: str, correct_capitals_str: str, u
 
     lower_valid_countries = [_normalize_string(c) for c in valid_countries_for_capital]
 
-    def get_shared_success_msg(matched_country_lower):
+    def get_shared_success_msg(matched_country_lower: str) -> str:
         # Find the properly cased name from our valid list
         matched_cased = next(
             (
@@ -410,14 +393,14 @@ def grade_country_answer(correct_country_name: str, correct_capitals_str: str, u
 
     # TIER 2: Fuzzy Match
     best_score: float = 0.0
-    best_match_country = None
+    best_match_country: str | None = None
     for valid_country in lower_valid_countries:
         score = fuzz.token_sort_ratio(normalized_user, valid_country)
         if score > best_score:
             best_score = score
             best_match_country = valid_country
 
-    if best_score >= 85 and best_match_country:
+    if best_score >= FUZZY_MATCH_THRESHOLD and best_match_country:
         return {
             "is_correct": True,
             "feedback_message": get_shared_success_msg(best_match_country),
@@ -440,12 +423,13 @@ def grade_country_answer(correct_country_name: str, correct_capitals_str: str, u
     ).hexdigest()
     cache_key = f"ai_country_{safe_country}_{safe_user}"
 
-    cached_result = cache.get(cache_key)
+    cached_result: dict[str, Any] | None = cache.get(cache_key)
     if cached_result:
         logger.info(
             f"Returning cached AI country grading for {correct_country_name}. User: '{user_answer_str}'."
         )
         return cached_result
+
 
     prompt = f"""
     You are an expert geography trivia judge. Your task is to evaluate a user's answer for a "guess the country" question.
@@ -553,7 +537,10 @@ def get_fun_fact(country_name: str) -> str:
                 _, created = CountryFunFact.objects.get_or_create(
                     country=country,
                     fact_text=fact_text,
-                    defaults={"is_ai_generated": True, "source": "user"},
+                    defaults={
+                        "is_ai_generated": True,
+                        "source": CountryFunFact.SourceChoices.USER,
+                    },
                 )
                 if created:
                     harvest_count += 1
@@ -564,7 +551,8 @@ def get_fun_fact(country_name: str) -> str:
                 )
 
             # Return the first newly harvested fact to the frontend immediately
-            return result["extra_facts"][0]
+            return str(result["extra_facts"][0])
+
 
         # Ultimate fallback if the AI request fails or returns bad JSON
         return f"Did you know {country_name} is a fascinating place to learn about!"
@@ -593,16 +581,17 @@ def generate_ai_quiz(topic_name: str) -> list[dict[str, Any]] | dict[str, str]:
         # Fetch the topic (case-insensitive match)
         topic = QuizTopic.objects.get(name__iexact=topic_name)
 
-        # Pull 10 random questions for this topic
-        questions = topic.questions.order_by("?")[:10]
+        # Pull QUIZ_QUESTION_COUNT random questions for this topic
+        questions = topic.questions.order_by("?")[:QUIZ_QUESTION_COUNT]
 
-        if questions.count() < 10:
+        if questions.count() < QUIZ_QUESTION_COUNT:
             return {
                 "error": "We are still building the question pool for this topic. Check back later!"
             }
 
         # Format them to match the exact JSON structure your React frontend expects
-        quiz_data = []
+        quiz_data: list[dict[str, Any]] = []
+
         for q in questions:
             quiz_data.append(
                 {

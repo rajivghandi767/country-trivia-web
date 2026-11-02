@@ -74,7 +74,12 @@ export const ReportModal: React.FC<ReportModalProps> = ({
             Thanks for the heads up! We'll look into it.
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 animate-fade-in">
+          <form
+            onSubmit={(e) => {
+              void handleSubmit(e);
+            }}
+            className="space-y-4 animate-fade-in"
+          >
             <div>
               <label className="block text-sm font-medium mb-1 opacity-80">
                 What's wrong?
