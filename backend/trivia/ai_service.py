@@ -9,7 +9,8 @@ from trivia.constants import (
 )
 from trivia.models import QuizTopic, CountryFunFact, Country
 import os
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import logging
 import json
 import re
@@ -37,13 +38,14 @@ logger.info(f"AI Service Initialized. Using model: {ACTIVE_MODEL_NAME}")
 
 # Configure the Gemini API
 api_key = os.getenv("GEMINI_API_KEY")
+gemini_client: genai.Client | None = None
 if not api_key:
     logger.warning(
         "GEMINI_API_KEY environment variable not set. AI features will be disabled."
     )
 else:
     try:
-        genai.configure(api_key=api_key)
+        gemini_client = genai.Client(api_key=api_key)
     except Exception as e:
         logger.error(f"Failed to configure Gemini AI: {e}")
 
@@ -103,19 +105,21 @@ def _generate_ai_json(prompt: str, temperature: float = 0.0, max_tokens: int = 4
     - Configures Gemini to use `application/json` as the `response_mime_type`.
     - Generates the text, strips markdown artifacts, and safely parses the string into a Python dictionary.
     """
-    generation_config = {
-        "temperature": temperature,
-        "top_p": 1,
-        "top_k": 1,
-        "max_output_tokens": max_tokens,
-        "response_mime_type": "application/json",
-    }
-    model = genai.GenerativeModel(
-        model_name=str(ACTIVE_MODEL_NAME),
-        generation_config=generation_config,  # type: ignore[arg-type]
+    if gemini_client is None:
+        raise RuntimeError("Gemini AI client is not configured.")
+    generation_config = types.GenerateContentConfig(
+        temperature=temperature,
+        top_p=1.0,
+        top_k=1.0,
+        max_output_tokens=max_tokens,
+        response_mime_type="application/json",
     )
-    response = model.generate_content(prompt)
-    response_text = response.text.strip().replace("```json", "").replace("```", "")
+    response = gemini_client.models.generate_content(
+        model=str(ACTIVE_MODEL_NAME),
+        contents=prompt,
+        config=generation_config,
+    )
+    response_text = (response.text or "").strip().replace("```json", "").replace("```", "")
     return cast(dict[str, Any], json.loads(response_text))
 
 
