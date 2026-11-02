@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from django.db import models
 
 
@@ -11,17 +13,20 @@ class Country(models.Model):
 
 
 class CountryFunFact(models.Model):
-    SOURCE_CHOICES = [
-        ("jenkins", "Scheduled Task"),
-        ("user", "User Interaction"),
-    ]
+    class SourceChoices(models.TextChoices):
+        JENKINS = "jenkins", "Scheduled Task"
+        USER = "user", "User Interaction"
+
+    SOURCE_CHOICES = SourceChoices.choices
 
     country = models.ForeignKey(
         Country, on_delete=models.CASCADE, related_name="fun_facts"
     )
     fact_text = models.TextField()
     is_ai_generated = models.BooleanField(default=False)
-    source = models.CharField(max_length=10, choices=SOURCE_CHOICES, default="jenkins")
+    source = models.CharField(
+        max_length=10, choices=SourceChoices.choices, default=SourceChoices.JENKINS
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
@@ -50,16 +55,17 @@ class QuizQuestion(models.Model):
 
 
 class ReportedIssue(models.Model):
-    ISSUE_TYPES = [
-        ("fact_error", "Fact is wrong"),
-        ("typo", "Typo or Grammar"),
-        ("ui_bug", "UI/Visual Bug"),
-        ("other", "Other"),
-    ]
+    class IssueType(models.TextChoices):
+        FACT_ERROR = "fact_error", "Fact is wrong"
+        TYPO = "typo", "Typo or Grammar"
+        UI_BUG = "ui_bug", "UI/Visual Bug"
+        OTHER = "other", "Other"
+
+    ISSUE_TYPES = IssueType.choices
 
     question_id = models.IntegerField(null=True, blank=True)
     country_name = models.CharField(max_length=100, null=True, blank=True)
-    issue_type = models.CharField(max_length=20, choices=ISSUE_TYPES)
+    issue_type = models.CharField(max_length=20, choices=IssueType.choices)
     user_note = models.TextField()
     resolved = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -68,3 +74,4 @@ class ReportedIssue(models.Model):
         return (
             f"{self.get_issue_type_display()} - {self.created_at.strftime('%m/%d/%Y')}"
         )
+

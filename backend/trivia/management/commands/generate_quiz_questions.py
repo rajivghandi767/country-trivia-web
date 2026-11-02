@@ -1,18 +1,18 @@
+from __future__ import annotations
+
+from typing import Any
+
 from django.core.management.base import BaseCommand
-from trivia.models import QuizTopic, QuizQuestion
 from trivia.ai_service import _generate_ai_json
+from trivia.constants import CORE_QUIZ_TOPICS, QUIZ_BATCH_SIZE, QUIZ_STOCK_LIMIT
+from trivia.models import QuizQuestion, QuizTopic
 
 
 class Command(BaseCommand):
     help = "Generates AI quiz questions for the frontend topics."
 
-    def handle(self, *args, **kwargs):
-        core_topics = ["Formula 1", "Caribbean History", "English Premier League"]
-
-        STOCK_LIMIT = 500
-        BATCH_SIZE = 15
-
-        for topic_name in core_topics:
+    def handle(self, *args: Any, **kwargs: Any) -> None:
+        for topic_name in CORE_QUIZ_TOPICS:
             topic, _ = QuizTopic.objects.get_or_create(
                 name__iexact=topic_name, defaults={"name": topic_name}
             )
@@ -20,27 +20,27 @@ class Command(BaseCommand):
             current_count = topic.questions.count()
 
             # Rolling Refresh: If we are at or above the limit, delete the oldest batch
-            if current_count >= STOCK_LIMIT:
+            if current_count >= QUIZ_STOCK_LIMIT:
                 self.stdout.write(
-                    f"♻️ Stock limit reached ({STOCK_LIMIT}) for {topic_name}. Rotating oldest {BATCH_SIZE} questions..."
+                    f"♻️ Stock limit reached ({QUIZ_STOCK_LIMIT}) for {topic_name}. Rotating oldest {QUIZ_BATCH_SIZE} questions..."
                 )
 
                 # Fetch the IDs of the oldest questions
                 oldest_questions = topic.questions.order_by("created_at").values_list(
                     "id", flat=True
-                )[:BATCH_SIZE]
+                )[:QUIZ_BATCH_SIZE]
 
                 # Delete them to make room for the new batch
                 QuizQuestion.objects.filter(id__in=list(oldest_questions)).delete()
             else:
                 self.stdout.write(
-                    f"📈 {topic_name} stock at {current_count}/{STOCK_LIMIT}. Generating more..."
+                    f"📈 {topic_name} stock at {current_count}/{QUIZ_STOCK_LIMIT}. Generating more..."
                 )
 
-            self.stdout.write(f"🚀 Generating batch of {BATCH_SIZE} for: {topic_name}")
+            self.stdout.write(f"🚀 Generating batch of {QUIZ_BATCH_SIZE} for: {topic_name}")
 
             prompt = f"""
-            Generate a JSON list of EXACTLY {BATCH_SIZE} unique multiple-choice trivia questions for {topic_name}.
+            Generate a JSON list of EXACTLY {QUIZ_BATCH_SIZE} unique multiple-choice trivia questions for {topic_name}.
             STRICT QUALITY REQUIREMENTS:
             1. DIVERSITY: Mix easy, medium, and challenging questions. 
             2. FACT CHECK: Use historical/static data (Knowledge Cutoff Jan 2025).
@@ -55,6 +55,8 @@ class Command(BaseCommand):
 
                 saved = 0
                 for item in quiz_data:
+                    if not isinstance(item, dict):
+                        continue
                     # Deduplication check
                     if not QuizQuestion.objects.filter(
                         topic=topic, question_text=item["question"]
@@ -80,3 +82,4 @@ class Command(BaseCommand):
                         f"❌ Error generating questions for {topic_name}: {e}"
                     )
                 )
+

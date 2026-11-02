@@ -17,10 +17,10 @@ env:
   APP_NAME: "Country Trivia Web App"
   REGISTRY: "ghcr.io"
   IMAGE_BACKEND: "rajivghandi767/trivia-backend"
-  IMAGE_FRONTEND: "rajivghandi767/trivia-frontend"
   IMAGE_NGINX: "rajivghandi767/trivia-nginx"
   DISCORD_SUCCESS_COLOR: "3066993"
   DISCORD_FAIL_COLOR: "15158332"
+
 
 jobs:
   test:
@@ -66,22 +66,15 @@ jobs:
                        -f backend/Dockerfile.prod ./backend
           docker push ghcr.io/rajivghandi767/trivia-backend --all-tags
 
-      - name: Build and Push Frontend
-        run: |
-          docker build -t ghcr.io/rajivghandi767/trivia-frontend:${{ github.run_number }} \
-                       -t ghcr.io/rajivghandi767/trivia-frontend:latest \
-                       --label git-commit=${{ steps.git-commit.outputs.short }} \
-                       --build-arg VITE_API_URL=https://trivia-api.rajivwallace.com \
-                       -f frontend/Dockerfile.prod ./frontend
-          docker push ghcr.io/rajivghandi767/trivia-frontend --all-tags
-
-      - name: Build and Push Nginx
+      - name: Build and Push Nginx (with embedded Frontend SPA)
         run: |
           docker build -t ghcr.io/rajivghandi767/trivia-nginx:${{ github.run_number }} \
                        -t ghcr.io/rajivghandi767/trivia-nginx:latest \
                        --label git-commit=${{ steps.git-commit.outputs.short }} \
-                       ./nginx
+                       --build-arg VITE_API_URL=https://trivia-api.rajivwallace.com \
+                       -f nginx/Dockerfile .
           docker push ghcr.io/rajivghandi767/trivia-nginx --all-tags
+
 
   notify:
     name: Discord Notification

@@ -110,7 +110,7 @@ LOGGING = {
             "level": "INFO",
             "propagate": False,
         },
-        "contacts": {
+        "trivia": {
             "handlers": ["console"],
             "level": "DEBUG",
             "propagate": False,
@@ -137,6 +137,5 @@ REST_FRAMEWORK.update(
             "rest_framework.renderers.BrowsableAPIRenderer",
         ],
         "DEFAULT_THROTTLE_CLASSES": [],
-        "DEFAULT_THROTTLE_RATES": {},
     }
 )

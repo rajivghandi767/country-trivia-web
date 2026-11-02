@@ -11,9 +11,9 @@ const localStorageMock = {
 
 vi.stubGlobal('localStorage', localStorageMock);
 
-Object.defineProperty(window, 'matchMedia', {
+Object.defineProperty(window, "matchMedia", {
   writable: true,
-  value: vi.fn().mockImplementation(query => ({
+  value: vi.fn().mockImplementation((query: string) => ({
     matches: false,
     media: query,
     onchange: null,
@@ -26,13 +26,14 @@ Object.defineProperty(window, 'matchMedia', {
 });
 
 // Mock IntersectionObserver
-// Mock IntersectionObserver
 class IntersectionObserverMock {
-  constructor() {}
   disconnect() {}
   observe() {}
-  takeRecords() { return []; }
+  takeRecords() {
+    return [];
+  }
   unobserve() {}
 }
-vi.stubGlobal('IntersectionObserver', IntersectionObserverMock);
+vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+
 

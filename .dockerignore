@@ -1,0 +1,9 @@
+.git
+.github
+.env*
+backend
+docs
+*.md
+frontend/node_modules
+frontend/dist
+frontend/.vite

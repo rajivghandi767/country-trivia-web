@@ -43,16 +43,17 @@ This project demonstrates my self-taught journey into software engineering—hig
 
 ### **Backend**
 
-- 🐍 Python
+- 🐍 Python 3.14 (Strict Static Typing via `mypy`, `django-stubs`, & `djangorestframework-stubs`)
 - 🚀 Django & Django REST Framework
 - 🤖 Google Generative AI (Gemini API)
 - ⚡ uv (Deterministic Package & Dependency Management)
 
 ### **Frontend**
 
-- ⚛️ React
-- 🔵 TypeScript
-- 🍃 Tailwind CSS & Vite
+- ⚛️ React 19
+- 🔵 TypeScript (Strict Type-Checked ESLint & Vitest)
+- 🍃 Tailwind CSS v4 & Vite
+
 
 ### **Database & Infrastructure**
 
@@ -74,7 +75,8 @@ Building this application required solving several interesting technical challen
   - _Tier 2 (Fuzzy String Matching)_: If an exact match fails, the system applies an algorithmic fuzzy matching layer (e.g., evaluating Levenshtein distance). This catches minor typos and misspellings locally, entirely bypassing network overhead.
   - _Tier 3 (AI Semantic Fallback)_: If the answer fails the local heuristic and fuzzy checks, it is routed to the Gemini LLM. The AI acts as a semantic judge, parsing edge cases like native language names or partial geographic matches.
 
-- **Data Integrity**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base.
+- **Data Integrity & Answer-Key Masking (Smart Server / Dumb Client)**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base. During active gameplay, the backend masks target answer fields (`capital` in "Guess the Capital" mode and `name` in "Guess the Country" mode) in the `/api/trivia/` payload so answers cannot be inspected in browser network traffic, and returns grading feedback, skip reveals, and fun facts in a single atomic `POST /api/trivia/{id}/check-answer/` round-trip.
+
 
 ### Performance & Scaling
 
@@ -95,7 +97,9 @@ This project is continuously deployed to my [Home Lab](https://github.com/rajivg
 > **CI/CD Evolution:** This project is deployed using a decentralized **GitHub Actions** edge runner, having migrated from a legacy Jenkins/JVM monolith to optimize compute overhead and security. 
 > The legacy Groovy pipelines have been preserved for historical context in the [`archive/jenkins-pipeline`](https://github.com/rajivghandi767/country-trivia-web/tree/archive/jenkins-pipeline) branch.
 
+- **Consolidated Edge Nginx Container**: In production, a multi-stage `trivia-nginx` image compiles and serves the static React SPA directly from `/usr/share/nginx/html` while reverse-proxying `/api/`, `/admin/`, and `/health/` to `trivia-backend` over HTTP/1.1 keepalive connections—eliminating redundant inner Nginx hops on the Raspberry Pi 4B.
 - **Automated CI/CD**: GitHub Actions watches the `main` branch. Upon commit, it runs tests, builds Docker images, and pushes them to a Private GitHub Container Registry. Scheduled deployments run daily at `04:15 AM` EST, followed by an automated data generation pipeline at `04:45 AM` EST. Successful deployments or pipeline failures trigger real-time Discord webhook alerts.
+
 - **Secure Secrets & Data Tiering**: API keys (like the Gemini API key) and database credentials are dynamically injected at runtime via HashiCorp Vault. The PostgreSQL database operates on a completely isolated `database` Docker network, ensuring the data layer is fully abstracted from public ingress.
 - **Observability**: Real-time application metrics and container health are continuously scraped by Prometheus and visualized on customized Grafana dashboards.
 

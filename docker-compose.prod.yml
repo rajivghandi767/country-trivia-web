@@ -46,23 +46,7 @@ services:
       retries: 3
       start_period: 60s
 
-  trivia-frontend:
-    image: ghcr.io/rajivghandi767/trivia-frontend:${IMAGE_TAG:-latest}
-    container_name: trivia-frontend
-    restart: unless-stopped
-    networks:
-      - core
-      - trivia
-    depends_on:
-      trivia-backend:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "wget", "-q", "--spider", "http://localhost/"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # Single unified nginx service
+  # Single unified nginx service (serves compiled React SPA + reverse-proxies API)
   trivia-nginx:
     image: ghcr.io/rajivghandi767/trivia-nginx:${IMAGE_TAG:-latest}
     container_name: trivia-nginx
@@ -73,8 +57,6 @@ services:
     depends_on:
       trivia-backend:
         condition: service_healthy
-      trivia-frontend:
-        condition: service_healthy
     volumes:
       - trivia_static:/usr/share/nginx/html/static:ro
       - trivia_logs:/var/log/nginx
@@ -83,6 +65,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+
 
 volumes:
   trivia_static:

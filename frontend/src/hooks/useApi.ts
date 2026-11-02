@@ -1,18 +1,27 @@
-import { useState, useEffect, useRef } from 'react';
-import { ApiResponse } from '@/types';
+import { useState, useEffect, useRef } from "react";
+import { ApiResponse } from "@/types";
 
 // Simple in-memory cache
-const apiCache: Record<string, { data: any; timestamp: number }> = {};
+const apiCache: Record<string, { data: unknown; timestamp: number }> = {};
 const CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+
+function isPaginatedResponse<T>(val: unknown): val is { results: T } {
+  return (
+    typeof val === "object" &&
+    val !== null &&
+    "results" in val &&
+    Array.isArray(val.results)
+  );
+}
 
 function useApi<T>(
   apiCall: () => Promise<ApiResponse<T>>,
   dependencies: React.DependencyList = [],
-  options: { cacheKey?: string; cacheTTL?: number; skip?: boolean } = {}
+  options: { cacheKey?: string; cacheTTL?: number; skip?: boolean } = {},
 ) {
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(!options.skip); // Don't set loading if skipping
+  const [isLoading, setIsLoading] = useState(!options.skip);
   const apiCallRef = useRef(apiCall);
 
   const fetchData = async (skipCache = false) => {
@@ -20,7 +29,7 @@ function useApi<T>(
 
     setIsLoading(true);
     setError(null);
-    
+
     // Check cache if we have a cache key and aren't skipping cache
     if (cacheKey && !skipCache) {
       const cached = apiCache[cacheKey];
@@ -30,36 +39,39 @@ function useApi<T>(
         return;
       }
     }
-    
+
     try {
       const result = await apiCallRef.current();
-      
+
       if (result.error) {
         throw new Error(result.error);
       }
-      
-      if (result.data && (result.data as any).results) {
-        setData((result.data as any).results as T);
-      } else {
-        setData(result.data as T);
-      }
-      
+
+      const payload: unknown = result.data;
+      const resolvedData = isPaginatedResponse<T>(payload)
+        ? payload.results
+        : (result.data as T);
+      setData(resolvedData);
+
       // Store in cache if we have a cache key
       if (cacheKey) {
         apiCache[cacheKey] = {
-          data: result.data,
+          data: resolvedData,
           timestamp: Date.now(),
         };
       }
     } catch (err) {
       if (import.meta.env.DEV) {
-        console.error('Error in API call:', err);
+        console.error("Error in API call:", err);
       }
-      setError(err instanceof Error ? err.message : 'An unknown error occurred');
+      setError(
+        err instanceof Error ? err.message : "An unknown error occurred",
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
 
   useEffect(() => {
     apiCallRef.current = apiCall;
@@ -86,14 +98,14 @@ function useApi<T>(
       }
     };
 
-    execute();
-    
+    void execute();
+
     // Cleanup function to prevent state updates after unmount
     return () => {
       isMounted = false;
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...dependencies, options.skip]); // Add options.skip to dependency array
+  // eslint-disable-next-line react-hooks/exhaustive-deps, @eslint-react/exhaustive-deps
+  }, [...dependencies, options.skip]);
 
   return { 
     data, 

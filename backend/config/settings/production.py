@@ -37,15 +37,11 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = False
 SECURE_SSL_REDIRECT = False
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
-# Static & Media Files
+# Static Files
 STATIC_URL = "/static/"
 STATIC_ROOT = "/home/backend/django/staticfiles"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = "/home/backend/django/mediafiles"
-
-# Ensure directories exist
-os.makedirs(MEDIA_ROOT, exist_ok=True)
+# Ensure static directory exists
 os.makedirs(STATIC_ROOT, exist_ok=True)
 
 # Database Configuration
@@ -131,6 +127,9 @@ REST_FRAMEWORK.update(
         ],
         "DEFAULT_PAGINATION_CLASS": None,
         "PAGE_SIZE": None,
+        "DEFAULT_THROTTLE_RATES": {
+            "contact": "20/hour",
+        },
     }
 )
 

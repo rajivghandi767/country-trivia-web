@@ -1,8 +1,9 @@
 import { usePortfolioData } from "../../hooks/usePortfolioData";
 
+const CURRENT_YEAR = new Date().getFullYear();
+
 const Footer = () => {
   const { info } = usePortfolioData();
-  const currentYear = new Date().getFullYear();
 
   return (
     <footer className="py-6 mt-6 border-t border-gray-200 dark:border-neutral-800 text-black dark:text-neutral-400">
@@ -18,7 +19,7 @@ const Footer = () => {
           </div>
           <div className="text-center">
             <p className="text-sm">
-              &copy; {currentYear} Rajiv Wallace🇩🇲. All rights reserved.
+              &copy; {CURRENT_YEAR} Rajiv Wallace🇩🇲. All rights reserved.
             </p>
             <p className="text-xs mt-1">
               <a
