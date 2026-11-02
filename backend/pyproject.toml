@@ -7,7 +7,7 @@ dependencies = [
     "django",
     "django-prometheus",
     "djangorestframework",
-    "google-generativeai",
+    "google-genai",
     "rapidfuzz",
     "redis",
 ]

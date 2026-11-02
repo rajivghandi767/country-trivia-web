@@ -35,7 +35,7 @@ This project demonstrates my self-taught journey into software engineering—hig
 - **Classic Game Modes**: Test knowledge in "Guess the Capital" or "Guess the Country" modes.
 - **Dynamic AI Content Generation**: The backend prompts the LLM to generate unique "Did you know?" facts, ensuring no two playthroughs are exactly the same.
 - **On-Demand AI Quizzes**: Features dynamically generated, multiple-choice quizzes on diverse topics (e.g., Formula 1, World Football, Caribbean History).
-- **State Management & Persistence**: Tracks real-time scoring, provides immediate feedback, and persists high scores in the browser's local storage.
+- **State Management & Persistence (Smart Server / Dumb Client)**: The backend (`GameEngine.serialize_for_api` and `/api/score/`) computes all session progress and accuracy metrics (`is_game_over`, `status_state`, `accuracy_percentage`, `total_count`), while the frontend renders server-provided state and deduplicates cross-component portfolio metadata requests (`usePortfolioData`).
 
 ---
 
@@ -45,7 +45,7 @@ This project demonstrates my self-taught journey into software engineering—hig
 
 - 🐍 Python 3.14 (Strict Static Typing via `mypy`, `django-stubs`, & `djangorestframework-stubs`)
 - 🚀 Django & Django REST Framework
-- 🤖 Google Generative AI (Gemini API)
+- 🤖 Google GenAI SDK (`google-genai` / Gemini API)
 - ⚡ uv (Deterministic Package & Dependency Management)
 
 ### **Frontend**
@@ -75,7 +75,7 @@ Building this application required solving several interesting technical challen
   - _Tier 2 (Fuzzy String Matching)_: If an exact match fails, the system applies an algorithmic fuzzy matching layer (e.g., evaluating Levenshtein distance). This catches minor typos and misspellings locally, entirely bypassing network overhead.
   - _Tier 3 (AI Semantic Fallback)_: If the answer fails the local heuristic and fuzzy checks, it is routed to the Gemini LLM. The AI acts as a semantic judge, parsing edge cases like native language names or partial geographic matches.
 
-- **Data Integrity & Answer-Key Masking (Smart Server / Dumb Client)**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base. During active gameplay, the backend masks target answer fields (`capital` in "Guess the Capital" mode and `name` in "Guess the Country" mode) in the `/api/trivia/` payload so answers cannot be inspected in browser network traffic, and returns grading feedback, skip reveals, and fun facts in a single atomic `POST /api/trivia/{id}/check-answer/` round-trip.
+- **Data Integrity, Endpoint Security & Answer-Key Masking (Smart Server / Dumb Client)**: Implementing logic to handle edge cases in geography data (e.g., countries with multiple capitals, recently renamed nations) to ensure the database remains accurately synced with the AI's knowledge base. During active gameplay, the backend masks target answer fields (`capital` in "Guess the Capital" mode and `name` in "Guess the Country" mode) in the `/api/trivia/` payload so answers cannot be inspected in browser network traffic, and returns grading feedback, skip reveals, and fun facts in a single atomic `POST /api/trivia/{id}/check-answer/` round-trip. Issue reporting (`POST /api/report/`) is locked down with DRF `ScopedRateThrottle` (`20/hour`) and strict `1000`-character length validation.
 
 
 ### Performance & Scaling
