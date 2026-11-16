@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from django.test import TestCase
+import json
+import urllib.error
+from unittest.mock import MagicMock, patch
+
+from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 from trivia.constants import MAX_ISSUE_NOTE_LENGTH
 from trivia.models import Country, CountryFunFact, QuizQuestion, QuizTopic, ReportedIssue
@@ -75,7 +79,6 @@ class CountryTriviaTests(TestCase):
             country=self.country,
             fact_text="Did you know South Africa has three capital cities?",
             is_ai_generated=False,
-            source=CountryFunFact.SourceChoices.JENKINS,
         )
 
     def test_shuffled_countries_masks_capital_in_capital_mode(self) -> None:
@@ -194,4 +197,50 @@ class ReportedIssueSecurityTests(TestCase):
             format="json",
         )
         self.assertEqual(response.status_code, 400)
+
+    @override_settings(DISCORD_BUG_WEBHOOK_URL="https://discord.example.com/bug-webhook")
+    @patch("trivia.models.urllib.request.urlopen")
+    def test_report_issue_dispatches_discord_bug_webhook(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.__enter__.return_value = mock_response
+        mock_urlopen.return_value = mock_response
+
+        response = self.client.post(
+            "/api/report-issue/",
+            {
+                "issue_type": "fact_error",
+                "country_name": "Brazil",
+                "question_id": 42,
+                "user_note": "Outdated @everyone note",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        mock_urlopen.assert_called_once()
+        req = mock_urlopen.call_args.args[0]
+        self.assertEqual(req.full_url, "https://discord.example.com/bug-webhook")
+        sent_payload = json.loads(req.data.decode("utf-8"))
+        self.assertEqual(sent_payload["allowed_mentions"], {"parse": []})
+        self.assertIn("Brazil", sent_payload["content"])
+        self.assertIn("42", sent_payload["content"])
+        self.assertIn("Outdated @everyone note", sent_payload["content"])
+
+    @override_settings(DISCORD_BUG_WEBHOOK_URL="https://discord.example.com/bug-webhook")
+    @patch("trivia.models.urllib.request.urlopen")
+    def test_report_issue_still_returns_201_when_webhook_errors(
+        self, mock_urlopen: MagicMock
+    ) -> None:
+        mock_urlopen.side_effect = urllib.error.URLError("timeout")
+        response = self.client.post(
+            "/api/report-issue/",
+            {
+                "issue_type": "ui_bug",
+                "user_note": "Modal cut off on mobile",
+            },
+            format="json",
+        )
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(ReportedIssue.objects.count(), 1)
 

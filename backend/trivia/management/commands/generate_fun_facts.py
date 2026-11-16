@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import models
 from django.db.models import QuerySet
 from trivia.ai_service import _generate_ai_json
@@ -69,7 +69,6 @@ class Command(BaseCommand):
                             country=country,
                             fact_text=new_fact_text,
                             is_ai_generated=True,
-                            source=CountryFunFact.SourceChoices.JENKINS,
                         )
                         self.stdout.write(
                             self.style.SUCCESS(f"Saved new fact for {country.name}")
@@ -83,4 +82,5 @@ class Command(BaseCommand):
 
         except Exception as e:
             self.stderr.write(self.style.ERROR(f"Error generating facts: {e}"))
+            raise CommandError(f"Error generating facts: {e}") from e
 

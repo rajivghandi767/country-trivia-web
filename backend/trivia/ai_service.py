@@ -543,7 +543,6 @@ def get_fun_fact(country_name: str) -> str:
                     fact_text=fact_text,
                     defaults={
                         "is_ai_generated": True,
-                        "source": CountryFunFact.SourceChoices.USER,
                     },
                 )
                 if created:

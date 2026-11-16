@@ -139,3 +139,7 @@ REST_FRAMEWORK.update(
         "DEFAULT_THROTTLE_CLASSES": [],
     }
 )
+
+# Discord Webhooks (opt-in via env in local development)
+DISCORD_BUG_WEBHOOK_URL = os.getenv("DISCORD_BUG_WEBHOOK_URL")
+DISCORD_DATAPIPES_WEBHOOK_URL = os.getenv("DISCORD_DATAPIPES_WEBHOOK_URL")
