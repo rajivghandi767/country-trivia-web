@@ -16,6 +16,7 @@ QUIZ_BATCH_SIZE: Final[int] = 15
 # Cache TTLs (in seconds) & Validation Limits
 CAPITAL_MAP_CACHE_TTL: Final[int] = 86400  # 24 hours
 MAX_ISSUE_NOTE_LENGTH: Final[int] = 1000
+DISCORD_TIMEOUT_SECONDS: Final[int] = 10
 
 # Core AI Quiz Categories
 CORE_QUIZ_TOPICS: Final[tuple[str, ...]] = (

@@ -7,6 +7,7 @@ from rest_framework import mixins, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.request import Request
+from rest_framework.serializers import BaseSerializer
 from rest_framework.throttling import ScopedRateThrottle
 from .constants import SHUFFLE_COUNTRY_LIMIT
 from .models import Country, CountryFunFact, QuizQuestion, ReportedIssue
@@ -122,7 +123,6 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                     fact_text=result["feedback_message"],
                     defaults={
                         "is_ai_generated": True,
-                        "source": CountryFunFact.SourceChoices.USER,
                     },
                 )
 
@@ -134,7 +134,6 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
                         fact_text=fact_text,
                         defaults={
                             "is_ai_generated": True,
-                            "source": CountryFunFact.SourceChoices.USER,
                         },
                     )
                     if created:
@@ -206,4 +205,8 @@ class ReportedIssueViewSet(mixins.CreateModelMixin, viewsets.GenericViewSet):
     serializer_class = ReportedIssueSerializer
     throttle_classes = [ScopedRateThrottle]
     throttle_scope = "contact"
+
+    def perform_create(self, serializer: BaseSerializer[Any]) -> None:
+        issue = serializer.save()
+        issue.send_notifications()
 

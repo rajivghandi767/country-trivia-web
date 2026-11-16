@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from trivia.ai_service import _generate_ai_json
 from trivia.constants import CORE_QUIZ_TOPICS, QUIZ_BATCH_SIZE, QUIZ_STOCK_LIMIT
 from trivia.models import QuizQuestion, QuizTopic
@@ -12,6 +12,7 @@ class Command(BaseCommand):
     help = "Generates AI quiz questions for the frontend topics."
 
     def handle(self, *args: Any, **kwargs: Any) -> None:
+        errors: list[str] = []
         for topic_name in CORE_QUIZ_TOPICS:
             topic, _ = QuizTopic.objects.get_or_create(
                 name__iexact=topic_name, defaults={"name": topic_name}
@@ -77,9 +78,16 @@ class Command(BaseCommand):
                 )
 
             except Exception as e:
+                msg = f"{topic_name}: {e}"
+                errors.append(msg)
                 self.stderr.write(
                     self.style.ERROR(
                         f"❌ Error generating questions for {topic_name}: {e}"
                     )
                 )
+
+        if errors:
+            raise CommandError(
+                f"Failed to generate quiz questions: {'; '.join(errors)}"
+            )
 
